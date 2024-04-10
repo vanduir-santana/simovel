@@ -1,0 +1,9 @@
+*.pyc
+*.bkp
+*.tmp
+tmp/
+lixo/
+*-env/
+*-env-py3-10/
+*-venv/
+__pycache__/

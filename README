@@ -1,0 +1,118 @@
+--------------------------------------------------------------------------------
+		d b I T    T e c n o l o g i a
+--------------------------------------------------------------------------------
+Integração SImovel
+Autor: Vanduir Santana Medeiros
+
+
+.:: Descrição ::.
+
+Esta é uma integração responsável por receber os dados em formato json do 
+chatbot do Whatsapp e fazer uma simulação de compra de imóvel nos bancos da 
+Caixa, Bradesco, Itaú e Santander.
+
+
+.:: Instalação ::.
+
+Pra instalar basta seguir os passos abaixo. Foi testado no Debian
+Buster.
+
+-> Instalar python3-pip:
+  # apt install python3-pip
+
+-> Instalar venv:
+  # apt install python3-venv
+
+-> Instalar um ambiente virtual com Python3:
+  $ python -m venv simovel-env 
+
+==> Se quiser simplificar, os pacotes podem ser instalados através do
+requirements.txt e assim não será necessário executar os passos abaixo.
+
+-> Instalar Flask no venv:
+  $ pip install flask
+
+-> Instalar lib unidecode
+  $ pip install unidecode
+
+-> Instalar n-gram
+  $ pip install ngram
+
+-> Instalar pytest
+  $ pip install -U pytest
+
+-> Instalar BeautifulSoup
+  $ pip install beautifulsoup4  
+
+-> Instalar restful plus flask
+  $ pip install flask-restplus
+
+-> Instalar flask-marshmallow pra serialização dos dados pra API rest
+ $ pip install flask-marshmallow
+
+ -> Instalar bibilioteca marshmallow-sqlalchemy 
+ $ pip install marshmallow-sqlalchemy 
+
+-> Instalar requests (funcionando melhor que urllib e tb é mais simples de usar):
+ $ pip install requests
+
+-> Instalar servico:
+  # ./instalar.sh 
+
+-> Testar serviço:
+  # systemctl status dbit-simovel
+
+-> Reiniciar serviço:
+  # systemctl restart dbit-simovel
+
+-> Ajustar arquivo config.py: 
+  É importante fazer o ajuste do arquivo config.py. O arquivo é auto-explicativo.
+
+-> Colocar a variável PYTHONPATH no arquivo activate (OBSLETO: ver próxima seção)
+  $ vi simovel-venv/bin/activate
+  export PYTHONPATH=/dir/do/projeto
+
+-> Criar arquivo simovel.pth em site.getsitepackages() e colocar o endereço do projeto
+   pra que o mesmo possa ser importado de qualquer diretório
+   $ python
+   >>> import site
+   >>> site.getsitepackages()
+   
+   Copiar o endereço, criar o arquivo simovel.pth nesse endereço, colar endereço do projeto
+
+
+.:: INSTALAR REQUISITOS Selenium (usado pelo Simulador Itaú) ::.
+
+.:: Atualizar S.O. ::.
+
+$ sudo apt update
+$ sudo apt upgrade
+
+
+ .:: Instalação Chrome ::.
+
+$ cd tmp
+$ wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+$ sudo dpkg -i --force-depends google-chrome-stable_current_amd64.deb
+$ sudo apt-get install -f
+
+
+ .: Teste funcioamento Chrome :.
+
+$ google-chrome-stable --headless --disable-gpu --screenshot https://www.chromestatus.com/
+
+
+ .: Selenium e Driver :.
+
+$ pip install selenium
+$ pip install webdriver-manager
+
+
+ .:: Referências ::.
+
+https://softhints.com/ubuntu-16-04-server-install-headless-google-chrome/
+https://linuxhint.com/chrome_selenium_headless_running/
+
+
+.:: Referências ::.
+  https://www.digitalocean.com/community/tutorials/how-to-serve-flask-applications-with-gunicorn-and-nginx-on-ubuntu-18-04
