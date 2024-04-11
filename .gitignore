@@ -1,6 +1,8 @@
 *.pyc
 *.bkp
 *.tmp
+.navbar-toggler
+.vscode/
 tmp/
 lixo/
 *-env/
