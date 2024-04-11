@@ -5,6 +5,7 @@
 .vscode/
 tmp/
 lixo/
+bkp/
 *-env/
 *-env-py3-10/
 *-venv/
