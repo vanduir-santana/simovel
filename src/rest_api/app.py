@@ -27,8 +27,11 @@ app.config['PROPAGATE_EXCEPTION'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 
-@app.before_first_request
+#@app.before_first_request
+@app.before_request
 def antes_primeira_req():
+    # a linha seguinte ira remover este handler, fazendo ele executar
+    # somente uma vez
     # cria banco de dados
     db.create_all()
 

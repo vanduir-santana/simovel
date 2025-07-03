@@ -1,8 +1,10 @@
 *.pyc
 *.bkp
 *.tmp
+*.vim
 .navbar-toggler
 .vscode/
+instance/
 tmp/
 lixo/
 bkp/

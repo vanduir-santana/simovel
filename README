@@ -97,7 +97,7 @@ $ sudo dpkg -i --force-depends google-chrome-stable_current_amd64.deb
 $ sudo apt-get install -f
 
 
- .: Teste funcioamento Chrome :.
+ .: Teste funcionamento Chrome :.
 
 $ google-chrome-stable --headless --disable-gpu --screenshot https://www.chromestatus.com/
 
