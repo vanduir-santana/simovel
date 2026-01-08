@@ -9,6 +9,11 @@ tmp/
 lixo/
 bkp/
 *-env/
+.venv/
 *-env-py3-10/
 *-venv/
 __pycache__/
+*excluir*.py
+*.egg-info
+dist/
+build/

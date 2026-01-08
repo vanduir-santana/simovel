@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 from decimal import InvalidOperation
-from sims.caixa import SimuladorCaixa, TipoFinanciamento, OpcaoFinanciamento
-from util import Decimal2
-import config.layout
-from exc import *
+from simovel.sims.caixa import SimuladorCaixa, TipoFinanciamento, OpcaoFinanciamento
+from simovel.util import Decimal2
+import simovel.config.layout
+from simovel.exceptions import *
 
 
 def test_obter_cidades():

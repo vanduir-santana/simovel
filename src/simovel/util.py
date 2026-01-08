@@ -2,25 +2,33 @@
 # coding: utf-8
 """Funções úteis como por exemplo validar_cpf ou remover_acentos.
 """
-__version__ = '0.22'
+__version__ = '0.23'
 __author__ = 'Vanduir Santana Medeiros'
 
-from exc import ErroCPF, ErroEmail
+import math
+import time
+import random
+from random import randint
 from decimal import Decimal, InvalidOperation
 from datetime import datetime, date
 from enum import Enum
 import re
+from sqlalchemy.types import CHAR
 import unidecode
 import locale
 import os, csv
-from random import randint
+from pathlib import Path
+
+from simovel.exceptions import ErroCPF, ErroEmail
 
 def remover_acentos(s: str, maiusc: bool=True) -> str:
-    """Remover acentos de uma string.
+    """
+    Remover acentos de uma string.
 
     Args:
         s (str): a string com acentos.
-        maiusc (bool, optional): converter para maiúsculas. Defaults to True.
+        maiusc (bool, optional): converter para maiúsculas. Defaults
+        to True.
 
     Returns:
         str: retorna string sem acentos.
@@ -29,8 +37,13 @@ def remover_acentos(s: str, maiusc: bool=True) -> str:
     return unidecode.unidecode(palavra_acentuada)
 
 def ajustar_esc_char(s: str) -> str:
-    """Remove os caracteres desnecessários quando retorna uma string javascript, 
-    retira as barras invertidas que não são usadas.""
+    """
+    Depreciado: não é mais necessário, pois a função decode de str
+    resolve o problema. Exemplo: 
+    html_str = html_str.encode('latin-1').decode('unicode_escape')
+
+    Remove os caracteres desnecessários quando retorna uma string
+    javascript, retira as barras invertidas que não são usadas.
 
     Args:
         s (str): string javascript
@@ -38,11 +51,20 @@ def ajustar_esc_char(s: str) -> str:
     Returns:
         str: retorna uma string sem os caracteres.
     """
-    return s.replace('\\r', '\r').replace('\\n', '\n').replace('\\"', r'"').replace('\\t', '\t').replace("\\\'", "'")
+    return (
+        s
+        .replace('\\r', '\r')
+        .replace('\\n', '\n')
+        .replace('\\"', r'"')
+        .replace('\\t', '\t')
+        .replace("\\\'", "'")
+    )
+
 
 def ajustar_unicode_esc_char(s: str) -> str:
-    """Remove os caracteres de escape pra strings unicodes que não foram convertidas corretamente,
-    retornadas de uma string javascritp, por
+    """
+    Remove os caracteres de escape pra strings unicodes que não foram
+    convertidas corretamente, retornadas de uma string javascript.
 
     Args:
         s (str): string que será retirada os caracteres
@@ -52,24 +74,25 @@ def ajustar_unicode_esc_char(s: str) -> str:
     """
     return s.encode().decode('unicode_escape')
 
-def data_eh_valida(s:str) -> bool:
-    if not str:
-        raise ValueError('É preciso preencher a data.')
 
-def data_eh_valida(sdata: str, formatos: tuple[str], conv_date: bool=True) -> date:
-    """Verifica através de uma str se data é válida.
+def data_eh_valida(
+        sdata: str, formatos: tuple, conv_date: bool=True
+) -> None | date:
+    """
+    Verifica através de uma str se data é válida.
 
     Args:
         sdata (str): string contendo a data a ser verificada.
-        formatos (tuple[str]): tupla ou lista com os formatos a serem verificados. 
-        conv_date (bool): se True converte pro tipo date, caso contrário retorna
-        como tipo datetime
+        formatos (tuple[str]): tupla ou lista com os formatos a serem
+            verificados
+        conv_date (bool): se True converte pro tipo date, caso
+            contrário retorna como tipo datetime
 
     Returns:
-        datetime: retorna um datetime quando data estiver dentro de ao menos um dos formatos.
-        caso contrário retorna None.
+        datetime: retorna um datetime quando data estiver dentro de ao
+        menos um dos formatos. Caso contrário retorna None.
     """
-    if type(sdata) is date or type(sdata) is datetime:
+    if isinstance(sdata, date):
         return sdata
 
     if not type(sdata) is str:
@@ -80,29 +103,57 @@ def data_eh_valida(sdata: str, formatos: tuple[str], conv_date: bool=True) -> da
             data = datetime.strptime(sdata, formato)
             if conv_date: data = date(data.year, data.month, data.day)
             return data
-        except ValueError as erro:
+        except ValueError:
             pass
     else:
         return None
 
-def csv_pra_lista_de_dic(arq: str, nomes_campos: str) -> list:
-    """Lê arquivo CSV e retorna lista de dicionários com os estados: nome e UF.
-    A primeira linha é ignorada, pode ser colocado nela os nomes dos campos.
-    Útil para inserir dados através do SQLAlchemy em massa.
+
+def obter_diretorio_raiz(path_arq: str='') -> str:
+    # 1. Obtendo o diretório do script atual
+    diretorio_script = Path(__file__).resolve().parent
+    print(f'Diretório do script: {diretorio_script}')
+
+    # 2. Obtendo o diretório raiz do projeto
+    diretorio_raiz = diretorio_script
+    while not (diretorio_raiz / 'pyproject.toml').exists():
+        diretorio_raiz = diretorio_raiz.parent
+
+    diretorio_raiz = diretorio_raiz / 'src'
+
+    if not path_arq:
+        return str(diretorio_raiz)
+
+    return str(diretorio_raiz / path_arq)
+
+
+def csv_pra_lista_de_dic(arq: str, nomes_campos: tuple) -> list:
+    """
+    Lê arquivo CSV e retorna lista de dicionários com os estados: nome
+    e UF. A primeira linha é ignorada, pode ser colocado nela os nomes
+    dos campos. Útil para inserir dados através do SQLAlchemy em
+    massa.
 
     Args:
-        nomes_campos (str): nomes dos campos, aparecem na primeira linha do
-            arquivo.
+        nomes_campos (str): nomes dos campos, aparecem na primeira linha
+        do arquivo.
     
     Returns:
         list[dict]: retorna uma lista de dicionários com as linhas.
     """
+    arq = obter_diretorio_raiz(arq)
+    print('-' * 50)
+    print(f'O arquivo é: {arq}')
+    print('-' * 50)
     if not os.path.exists(arq):
         raise Exception(f'Não encontrou o arquivo {arq}.')
 
     lista_dic: list = []
     with open(arq, mode='r') as csv_file:
-        csv_reader = csv.DictReader(csv_file, fieldnames=nomes_campos, delimiter=',')
+        csv_reader = csv.DictReader(
+            csv_file, fieldnames=nomes_campos, delimiter=','
+        )
+
         for i, dic_linha in enumerate(csv_reader):
             if i == 0: 
                 continue
@@ -119,7 +170,7 @@ class Decimal2(Decimal):
 
     @property
     def valor(self) -> Decimal:
-        return self._valor
+        return Decimal(self._valor)
 
     @classmethod
     def from_cur_str(cls, v: str | float | int | Decimal) -> 'Decimal2':
@@ -132,8 +183,8 @@ class Decimal2(Decimal):
         decimal formatado pt-BR como no exemplo: R$ 122.496,40 para um
         valor decimal. Se v tiver pontuada no sistema USA, com ponto no
         lugar da vírgula, faz o ajuste de acordo com o número de casas
-        decimais. Converte também int, float e strings com números sem o 
-        R$.
+        decimais. Converte também int, float e strings com números sem
+        o R$.
 
         Args:
             v: contem o valor, pode ser formatado com R$.
@@ -141,6 +192,18 @@ class Decimal2(Decimal):
         Returns:
             Decimal2: return um Decimal2 contendo o valor.
         """
+        def eh_padrao_br(pos_virg: int, pos_ponto: int, tam: int):
+            return (
+                (pos_virg > pos_ponto and (1 <= pos_virg <= tam - 2)) or
+                (pos_virg == -1) and
+                (1 <= pos_ponto < tam - cls.CASAS_DECIMAIS - 1)
+            )
+
+        def eh_padrao_usa(pos_virg: int, pos_ponto: int, tam: int):
+            return (
+                (pos_ponto > pos_virg  and (1 <= pos_ponto <= tam - 2))
+            )
+
         if type(v) is float or type(v) is int:
             return cls(v)
         elif type(v) is Decimal:
@@ -149,21 +212,21 @@ class Decimal2(Decimal):
             if not v:
                 return cls('0.0')
             try:
-                v = v.strip().capitalize() # capitalize pra colocar R$ maiúsculo
+                # capitalize pra colocar R$ maiúsculo
+                v = v.strip().capitalize() 
                 if not v:
-                    raise ValueError('É preciso definir algum valor pra Decimal2.')
+                    raise ValueError(
+                        'É preciso definir algum valor pra Decimal2.'
+                    )
 
                 if v.startswith(cls.RS):
                     v = v[len(cls.RS): ].strip()
                 
                 tam, pos_virg, pos_ponto = len(v), v.rfind(','), v.rfind('.')
-                eh_padrao_br  = lambda: (pos_virg  > pos_ponto and (1 <= pos_virg  <= tam - 2)) or \
-                                        (pos_virg == -1)       and (1 <= pos_ponto <  tam - cls.CASAS_DECIMAIS - 1)
-                eh_padrao_usa = lambda: (pos_ponto > pos_virg  and (1 <= pos_ponto <= tam - 2))
-                
-                if eh_padrao_br():
+
+                if eh_padrao_br(pos_virg, pos_ponto, tam):
                     v = v.replace('.', '').replace(',', '.')
-                elif eh_padrao_usa():
+                elif eh_padrao_usa(pos_virg, pos_ponto, tam):
                     v = v.replace(',', '')
 
                 return cls(Decimal(v))
@@ -173,7 +236,9 @@ class Decimal2(Decimal):
                 print(f'{v} não é um valor aceito!')
                 raise ValueError(f'{erro}')
         else:
-            raise TypeError(f'Tipo do valor não aceito para Decimal2: {type(v)}.')
+            raise TypeError(
+                f'Tipo do valor não aceito para Decimal2: {type(v)}.'
+            )
 
     def __str__(self) -> str:
         return self.__to_str()
@@ -186,12 +251,15 @@ class Decimal2(Decimal):
 
     @staticmethod
     def setar_local_pt_br():
-        """Defini o locale como pt-br pra que o decimal seja formatado corretamente pro estilo moeda.
+        """
+        Define o locale como pt-br pra que o decimal seja formatado
+        corretamente pro estilo moeda.
         """
         locale.setlocale(locale.LC_MONETARY, 'pt_BR.utf8')
     
     def formatar_moeda(self, retirar_rs: bool = False) -> str:
-        """Formata decimal pro estilo moeda no padrão pt_BR. É preciso no
+        """
+        Formata decimal pro estilo moeda no padrão pt_BR. É preciso no
         iníco da aplicação executar Decimal2().setar_local_pt_br.
 
         Returns:
@@ -199,8 +267,11 @@ class Decimal2(Decimal):
         """
         try:
             r = locale.currency(self, grouping=True)
-        except ValueError as erro:
-            print('Problema ao formatar_moeda. Rodar Decimal2.self.setar_local_pt_br')
+        except ValueError:
+            print(
+                'Problema ao formatar_moeda. Rodar '
+                'Decimal2.self.setar_local_pt_br'
+            )
             raise
         
         return r if not retirar_rs else r.replace('R$ ', '')
@@ -236,13 +307,17 @@ class FoneTam(Enum):
 
 
 class Fone:
-    """Trata telefones, separa as partes em grupos (ver propriedade grupos) e formata.
+    """
+    Trata telefones, separa as partes em grupos (ver propriedade grupos)
+    e formata.
 
     Raises:
-        ValueError: padrao precisa ser uma string com a regex a ser analisada.
+        ValueError: padrao precisa ser uma str com a regex a ser
+        analisada.
         ValueError: formato tem que ser do tipo FoneFormato.
         ValueError: o valor do fone tem que ser do tipo str.
-        ValueError: fone com a quantidade de números inferior ao tamanho mínimo.
+        ValueError: fone com a quantidade de números inferior ao
+        tamanho mínimo.
         ValueError: idem ao ValueError anterior.
         ValueError: aceita DDI apenas do Brasil.
         ValueError: idem ao anterior.
@@ -252,16 +327,17 @@ class Fone:
     Returns:
         [type]: [description]
     """
-    #PADRAO_NUM = '(\+\d{3})?([1-9]{1}\d{1})?(\d{4,5})(\d{4})'
-    PADRAO_NUM_MAIOR = '(\+\d{3})?([1-9]{1}\d{1})?(\d{5})(\d{4})'
-    PADRAO_NUM_MENOR = '(\+\d{3})?([1-9]{1}\d{1})?(\d{4})(\d{4})'
+    PADRAO_NUM_MAIOR = r'(\+\d{3})?([1-9]{1}\d{1})?(\d{5})(\d{4})'
+    PADRAO_NUM_MENOR = r'(\+\d{3})?([1-9]{1}\d{1})?(\d{4})(\d{4})'
     DDI_BRASIL = '55'    
     DDD_PADRAO = '62'
     DDI_PADRAO = DDI_BRASIL
 
-    def __init__(self, valor:str, 
-                 formato: FoneFormato=FoneFormato.CAIXA_SIMULADOR, 
-                 ddd_obg: bool=True) -> None:
+    def __init__(
+        self, valor:str, 
+        formato: FoneFormato=FoneFormato.CAIXA_SIMULADOR, 
+        ddd_obg: bool=True
+    ) -> None:
         self._grupos: dict = {}
         self._padrao: str = ''
         self._valor: str  = ''
@@ -303,7 +379,9 @@ class Fone:
     @formato.setter
     def formato(self, v):
         if type(v) is not FoneFormato:
-            raise ValueError('Formato do fone precisa ser do tipo FoneFormato.')
+            raise ValueError(
+                'Formato do fone precisa ser do tipo FoneFormato.'
+            )
         
         self._formato = v
 
@@ -317,38 +395,58 @@ class Fone:
         if type(v) is not str:
             raise ValueError('O fone precisa ser str.')
 
-        CELULAR_CURTO_OU_FIXO_SEM_DDD = FoneTam.CELULAR_CURTO_OU_FIXO_SEM_DDD.value
+        CELULAR_CURTO_OU_FIXO_SEM_DDD = \
+            FoneTam.CELULAR_CURTO_OU_FIXO_SEM_DDD.value
+
         if not self._ddd_obg and len(v) < CELULAR_CURTO_OU_FIXO_SEM_DDD:
-            raise ValueError(f'Fone "{v}" precisa ter pelo menos {CELULAR_CURTO_OU_FIXO_SEM_DDD} números.')
+            raise ValueError(
+                f'Fone "{v}" precisa ter pelo menos '
+                f'{CELULAR_CURTO_OU_FIXO_SEM_DDD} números.'
+            )
         
         valor_nums: str = ''.join([c for c in v if c.isdigit()])
         tam_nums = len(valor_nums)
+
         if not self._ddd_obg and tam_nums < CELULAR_CURTO_OU_FIXO_SEM_DDD:
-            raise ValueError(f'Fone "{v}" precisa ter pelo menos {CELULAR_CURTO_OU_FIXO_SEM_DDD} números.')
+            raise ValueError(
+                f'Fone "{v}" precisa ter pelo menos '
+                f'{CELULAR_CURTO_OU_FIXO_SEM_DDD} números.'
+            )
         
         DDD_CELULAR_CURTO_OU_FIXO = FoneTam.DDD_CELULAR_CURTO_OU_FIXO.value
+
         if self._ddd_obg and tam_nums < DDD_CELULAR_CURTO_OU_FIXO:
-            raise ValueError(f'Fone "{v}" precisa ter pelo menos {DDD_CELULAR_CURTO_OU_FIXO} números, incluindo o DDD.')
+            raise ValueError(
+                f'Fone "{v}" precisa ter pelo menos '
+                f'{DDD_CELULAR_CURTO_OU_FIXO} números, incluindo o DDD.'
+            )
         
         if (tam_nums == FoneTam.DDI_2_DIG_DDD_CELULAR_CURTO_OU_FIXO.value
             or tam_nums == FoneTam.DDI_2_DIG_DDD_CELULAR_NORMAL.value):
             # TODO: implementar tratamento de números DDI de outros países?
             if not valor_nums.startswith(self.DDI_BRASIL):
-                raise ValueError(f'Aceito apenas DDI do Brasil: {self.DDI_BRASIL}.')
+                raise ValueError(
+                    f'Aceito apenas DDI do Brasil: {self.DDI_BRASIL}.'
+                )
             else:
                 valor_nums = '+0' + valor_nums
-
         elif tam_nums == FoneTam.DDI_3_DIG_DDD_CELULAR_NORMAL.value:
-            # TODO: implementar tratamento de números DDI de outros países?
+            # TODO: implementar tratamento de números DDI de outros
+            # países?
             if not valor_nums.startswith('+0' + self.DDI_BRASIL):
-                raise ValueError(f'Aceito apenas DDI do Brasil: {self.DDI_BRASIL}.')
+                raise ValueError(
+                    f'Aceito apenas DDI do Brasil: {self.DDI_BRASIL}.'
+                )
             else:
                 valor_nums = "+" + valor_nums
-
         elif tam_nums > FoneTam.DDI_3_DIG_DDD_CELULAR_NORMAL.value:
-            raise ValueError(f'Fone "{v}" precisa ser menor que o tamanho máximo com o código do país.')
+            raise ValueError(
+                f'Fone "{v}" precisa ser menor que o tamanho máximo com o'
+                f'código do país.'
+            )
         
-        DDI_2_DIG_DDD_CELULAR_CURTO_OU_FIXO = FoneTam.DDI_2_DIG_DDD_CELULAR_CURTO_OU_FIXO.value
+        DDI_2_DIG_DDD_CELULAR_CURTO_OU_FIXO = \
+            FoneTam.DDI_2_DIG_DDD_CELULAR_CURTO_OU_FIXO.value
 
         padrao: str = ''
         if self.padrao:
@@ -370,13 +468,11 @@ class Fone:
         grupo_ddd: str = ''
 
         if not r.group(1):
-            #print(f'DDI não encontrado no fone "{v}" deixar vazio.')
             grupo_ddi = ''
         else:
             grupo_ddi = r.group(1)
 
         if not r.group(2):
-            #print(f'DDD não encontrado no fone "{v}", colocando DDD padrão. {self.DDD_PADRAO}')
             grupo_ddd = self.DDD_PADRAO
         else:
             grupo_ddd = r.group(2)
@@ -435,9 +531,10 @@ class Fone:
 
 
 class Cpf:
-    """Essa classe contêm as funções pra validação e formatação de CPF.
     """
-
+    Essa classe contêm as funções pra validação e formatação de
+    CPF.
+    """
     def __init__(self, cpf: str):
         """Construtor
 
@@ -492,8 +589,8 @@ class Cpf:
 
         Args:
             cpf (str): CPF a ser verificado
-            disparar_erro (bool, optional): Quando True dispara erro, se falso
-            mostra mensagem com o erro. Defaults to True.
+            disparar_erro (bool, optional): Quando True dispara erro, se
+            falso mostra mensagem com o erro. Defaults to True.
 
         Raises:
             ValueError: CPF vazio
@@ -503,8 +600,9 @@ class Cpf:
             ValueError: falha segundo dígito verificador
 
         Returns:
-            bool: retorna True quando válido; guarda em self._cpf_l o CPF, apenas com números 
-            no formato lista, caso disparar_erro=False retorna False
+            bool: retorna True quando válido; guarda em self._cpf_l o
+            CPF, apenas com números no formato lista, caso
+            disparar_erro=False retorna False
         """
         self.validado = False
         cpf = self.cpf
@@ -523,7 +621,9 @@ class Cpf:
         for num in cpf_l:
             if num != cpf_l[0]: break
         else:
-            self.erro('CPF não pode ter todos os números iguais.', disparar_erro)
+            self.erro(
+                'CPF não pode ter todos os números iguais.', disparar_erro
+            )
             return False
             
         mult = lambda num1, num2: num1 * num2
@@ -533,7 +633,10 @@ class Cpf:
         resto = (soma * 10) % 11
         if resto == 10: resto = 0
         if resto != cpf_l[9]:
-            self.erro(f'CPF {cpf} inválido, verifique se o número está correto.', disparar_erro)
+            self.erro(
+                f'CPF {cpf} inválido, verifique se o número está correto.',
+                disparar_erro
+            )
             return False
         
         seq_11_2 = list(range(11, 1, -1))
@@ -680,6 +783,65 @@ def email_aleatorio() -> str:
 
     return f'{nomes[ind_nome]}{nomes_comp[ind_nome_comp]}@{provedores[ind_provedores]}'
 
+################################################################################
+# Funções dwr Simulador Caixa
+################################################################################
+CHARMAP = "1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ*$"
+
+def dwr_tokenify(number: int) -> str:
+    """
+    Tokenizador para gerar scriptSessionId pro simulador Caixa. Precisa
+    disso pra conversar com o backend deles que é em Java. Essa
+    função foi convertida de JS pra Python. Ela está no arquivo
+    engine.js carregado junto com a página (site) do simulador da Caixa.
+    """
+    tokenbuf = []
+
+    while number > 0:
+        # Pega o valor de 6 bits
+        tokenbuf.append(CHARMAP[number & 0x3F])
+        # Divisão por 64
+        number = number // 64
+
+    return ''.join(tokenbuf)
+
+
+# Gerar o dwrsess (simulação - você precisará de uma forma real de obter
+# esse valor)
+CHARMAP2 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!~"
+
+
+def dwr_gerar_dwrsess():
+    # Simulação: gerar um valor aleatório para dwrsess
+    return ''.join(
+        random.choices(
+            CHARMAP2,
+            k=35
+        ))
+
+
+def dwr_gerar_page_id() -> str:
+    """
+    Gera _page_id a partir do Simóvel pois ele faz parte do scriptSessionId
+    que é enviado em cada requisição. Geralmente isso é gerado no
+    carregamento da página inicial do simulador através de JS. Como a
+    urllib não executa JS, é preciso converter o código para Python.
+    """
+    # tempo atual em milissegundos
+    timestamp = dwr_tokenify(int(time.time() * 1000))
+
+    # número aleatório até 1E16
+    random_value = dwr_tokenify(int(random.uniform(0, 1E16)))
+    page_id = f"{timestamp}-{random_value}"
+
+    # Garantir exatamente 17 caracteres, preenchendo com '0' se necessário
+    # em testes page_id as vezes vinha com 16 caracteres
+    return page_id[:17].ljust(17, '0')
+
+################################################################################
+# Fim funções dwr Simulador Caixa
+################################################################################
+
 def test2():
     n = '62 99987 4322'
     
@@ -689,6 +851,17 @@ def test2():
     print(f'{Fone.a_partir_de_fmt_comum(n).formatar()=}')
 
 
+def test3():
+    print('Testar geração de scriptSessionId para Simulador Caixa:')
+    for _ in range(10):
+        dwrsess = dwr_gerar_dwrsess()
+        page_id = dwr_gerar_page_id()
+
+        script_session_id = f"{dwrsess}/{page_id}"
+        print(len(script_session_id), script_session_id)
+
+
 if __name__ == '__main__':
     #test()
-    test2()
+    #test2()
+    test3()

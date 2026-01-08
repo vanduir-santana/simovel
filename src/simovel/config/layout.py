@@ -6,16 +6,13 @@ __author__ = 'Vanduir Santana Medeiros'
 
 
 class CaixaResultado:
-    #TXT_SISTEMA_AMORTIZACAO_INI = 'Sistema de amortização'
-    TXT_SISTEMA_AMORTIZACAO_INI = 'Sistema de amortiza\\u00E7\\u00E3o\xa0'
-    TXT_SUBSIDIO_CASA_VERDE_AMARELA_INI = 'Subs\\u00EDdio'
+    TXT_SISTEMA_AMORTIZACAO_INI = 'Sistema de amortização'
+    TXT_SUBSIDIO_CASA_VERDE_AMARELA_INI = 'Subsídio'
     SIMULACAO_RESULTADO_CAIXA_CAMPOS: dict = {
-        #'Valor do imóvel': 'valor_imovel',
-        'Valor do im\\u00F3vel': 'valor_imovel',
+        'Valor do imóvel': 'valor_imovel',
         'Prazo máximo': 'prazo_max',
         'Prazo escolhido': 'prazo',
-        #'Cota máxima financiamento': 'cota_max',
-        'Cota m\\u00E1xima financiamento': 'cota_max',
+        'Cota máxima do financiamento': 'cota_max',
         'Valor da entrada': 'valor_entrada',
         TXT_SUBSIDIO_CASA_VERDE_AMARELA_INI: 'subsidio_casa_verde_amarela',  # implementar
         'Valor do financiamento': 'valor_financiamento',

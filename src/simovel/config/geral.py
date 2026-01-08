@@ -8,11 +8,6 @@ __author__ = 'Vanduir Santana Medeiros'
 from enum import Enum
 from decimal import Decimal
 
-# class TipoResultado(Enum):
-#     COMUM = auto()          # mesmos dados pra todos os simuladores (baseado Caixa)
-#     EXTRA = auto()          # mesmos dados do formato padrão + dados específicos do respec. simulador
-#     ORIGINAL = auto()       # mesmos dados do simulador, mesma ordem
-
 
 class ItauTipoSimulacao(Enum):
     SEL = 1
@@ -31,7 +26,7 @@ class Parametros:
     VALOR_IMOVEL_MIN = 10000.
     CELULAR_CAIXA_DEFAULT = '(62)99843-2122'
     RENDA_FAMLIAR_MIN = 1100.
-    DATA_FORMATOS = (
+    DATA_FORMATOS: tuple = (
         '%d/%m/%Y',
         '%d %m %Y',
         '%d-%m-%Y',
@@ -70,8 +65,13 @@ class Api:
 
 
 class Caixa:
+    # não pergunta pra marcar se Possui Relacionamento Caixa
     PERGUNTAR_CLIENTE_CAIXA = False
-    CLIENTE_CAIXA = True
+    # corresponde a marcar a opção Possui Relacionamento Caixa
+    CLIENTE_CAIXA = False
+    # se for True a configuração OPCOES_FINANCIAMENTO_ACEITAS passa
+    # a NÃO ter efeito
+    PERMITIR_TODAS_OPCOES_FINANCIAMENTO = True
     # Se a lista tiver vazia aceita todas as opções de financiamento, 
     # senão apenas os códigos dentro dela
     OPCOES_FINANCIAMENTO_ACEITAS = [
@@ -89,6 +89,9 @@ class Caixa:
         107701105,  # Programa Casa Verde e Amarela: Compra de Terreno e Construção
         108701106,  # CRÉDITO REAL FÁCIL CAIXA (TR, IPCA ou Tx FIXA): Setor Privado - Garantia Imóvel Residencial
         108701131,  # CRÉDITO REAL FÁCIL POUPANÇA CAIXA: Setor Privado - Garantia Imóvel Residencial
+        # confirmar com o Itamar se é pra manter essas abaixo
+        100501101,  # Programa Minha Casa, Minha Vida - Recursos FGTS: Imóvel vinc. a Empreendimento financiado na CAIXA
+        # 100301131, SBPE (TR): Imóvel Vinc. Empreend. Financiado na CAIXA - Relacionamento
         #### COMERCIAL
         100301103,  # SBPE: Relacionamento (Novo)
         105801102,  # SBPE: Relacionamento (Usado)

@@ -50,49 +50,42 @@ class ErroValorPrimeiraPrestacao(Erro):
         super().__init__(self.message)
 
 class ErroValorImovel(Erro):
-    """Valor do imóvel inválido. Não conseguiu converter o valor do imóvel em Decimal.
-    """
+    """Valor do imóvel inválido. Não conseguiu converter o valor do imóvel em Decimal."""
 
 class ErroValorImovelAbaixoMin(Erro):
-    """Valor do imóvel abaixo do mínimo configurado ou abaixo do mínimo aceito pelo banco.
-    """
+    """Valor do imóvel abaixo do mínimo configurado ou abaixo do mínimo aceito pelo banco."""
     pass
 
 
 class ErroValorEntradaAcimaPermitido(Erro):
-    """Valor da entrada acima do permitido ou acima do valor do imóvel.
-    """
+    """Valor da entrada acima do permitido ou acima do valor do imóvel."""
     pass
 
 
 class ErroValorEntradaAbaixoPermitido(Erro):
-    """Valor da entrada menor que o permitido.
-    """
+    """Valor da entrada menor que o permitido."""
     pass
 
 
 class ErroCPF(Erro):
-    """CPF não é válido, possui algum erro, não passou no teste de dígito verificador, etc.
-    """
+    """CPF não é válido, possui algum erro, não passou no teste de dígito verificador, etc."""
     pass
 
 class ErroCelular(Erro):
-    """Celular inválido ou celular não preenchido.
-    """
+    """Celular inválido ou celular não preenchido."""
     pass
 
 class ErroRendaFamiliar(Erro):
-    """Erro da renda familiar inválida ou abaixo da renda familiar bruta mínima.
-    """
+    """Erro da renda familiar inválida ou abaixo da renda familiar bruta mínima."""
     pass
 
 class ErroRendaFamiliarInsuficente(Erro):
-    """Disparado quando vai efetuar a simulação e a Caixa retorna uma mensagem de renda insuficiente.
-    """
+    """Disparado quando vai efetuar a simulação e a Caixa retorna uma mensagem de renda insuficiente."""
     pass 
 
 class ErroValorFinanciamentoInferior(Erro):
-    """Disparado quando vai efetuar a simulação e a Caixa retorna a
+    """
+    Disparado quando vai efetuar a simulação e a Caixa retorna a
     mensagem: VALOR DE FINANCIAMENTO CALCULADO É INFERIOR AOS LIMITES
     DO PROGRAMA.
     """
@@ -106,45 +99,45 @@ class ErroValorFinanciamentoInferior2(Erro):
 
 
 class ErroValorFinanciamento(Erro):
-    """Acontece quando existe algum problema ao setar o valor do financiamento.
-    Bancos: Bradesco"""
+    """Acontece quando existe algum problema ao setar o valor do financiamento. Bancos: Bradesco"""
     pass
 
 class ErroValorMaxFinanciamento(Erro):
-    """Erro acontece quando não está definido o valor máximo do financiamento.
-    Bancos: Bradesco."""
+    """Erro acontece quando não está definido o valor máximo do financiamento. Bancos: Bradesco."""
     pass
 
 class ErroFinanciarDespesas(Erro):
-    """Acontece quando setar o attributo com um valor que não seja bool.
-    Bancos: Bradesco."""
+    """Acontece quando setar o attributo com um valor que não seja bool. Bancos: Bradesco."""
     pass
 
 class ErroDataNascimento(Erro):
-    """Disparado quando for colocada uma data de nascimento inválida. Ver o módulo util.data_eh_valida().
-    """
+    """Disparado quando for colocada uma data de nascimento inválida. Ver o módulo util.data_eh_valida()."""
     pass
 
 class ErroSistemaAmortizacaoInvalido(Erro):
-    """Disparado quando tentar setar a taxa de amortização de outro tipo.
-    Bancos: Bradesco."""
+    """Disparado quando tentar setar a taxa de amortização de outro tipo. Bancos: Bradesco."""
     pass
 
 class ErroDataNascimentoConjuge(Erro):
-    """Disparado quando for colocada uma data de nascimento de cônjuge 
+    """
+    Disparado quando for colocada uma data de nascimento de cônjuge 
     inválida. Ver o módulo util.data_eh_valida(). Específico pro módulo
     do Bradesco.
     """
     pass
 
 class ErroFormaPagamentoInvalida(Erro):
-    """Disparado quando tenta setar a partir de um tipo diferente de FormaPagamento.
-    Bancos: Bradesco."""
+    """
+    Disparado quando tenta setar a partir de um tipo diferente de FormaPagamento.
+    Bancos: Bradesco.
+    """
     pass
 
 class ErroSeguradoraInvalida(Erro):
-    """Disparado quando tenta setar a partir de um tipo diferente de Seguradora.
-    Bancos: Bradesco."""
+    """
+    Disparado quando tenta setar a partir de um tipo diferente de Seguradora.
+    Bancos: Bradesco.
+    """
     pass
 
 class ErroUF(Erro):

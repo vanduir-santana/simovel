@@ -5,38 +5,47 @@ Bot tá inclusa no documento PDF com o título "Documentação de Integração v
 __author__ = 'Vanduir Santana Medeiros'
 __version__ = '1.34'
 
-from ast import Param
 from datetime import date, datetime
 from enum import Enum, auto
 from flask import request, url_for
 from flask_restx import Namespace, Resource, fields
-from exc import ErroCPF, ErroCelular, ErroDataNascimento, ErroPrazo, ErroResultadoCampoNaoRetornado, ErroResultadoSimulacao, ErroTipoFinanciamento, ErroValorEntradaAbaixoPermitido, ErroValorEntradaAcimaPermitido
-from exc import ErroValorFinanciamento, ErroValorMaxFinanciamento
-from exc import ErroPrestacaoMax, ErroValorFinanciamentoInferior
-from exc import ErroValorFinanciamentoInferior2
-from exc import ErroObterOpcaoFinanciamento, ErroRendaFamiliar
-from exc import ErroRendaFamiliarInsuficente, ErroValorImovel
-from exc import ErroValorImovelAbaixoMin, ErroValorEntrada 
+from simovel.exceptions import (
+    ErroCPF,
+    ErroCelular,
+    ErroDataNascimento,
+    ErroPrazo,
+    ErroResultadoCampoNaoRetornado,
+    ErroResultadoSimulacao,
+    ErroTipoFinanciamento,
+    ErroValorEntradaAbaixoPermitido,
+    ErroValorEntradaAcimaPermitido
+)
+from simovel.exceptions import ErroValorFinanciamento, ErroValorMaxFinanciamento
+from simovel.exceptions import ErroPrestacaoMax, ErroValorFinanciamentoInferior
+from simovel.exceptions import ErroValorFinanciamentoInferior2
+from simovel.exceptions import ErroObterOpcaoFinanciamento, ErroRendaFamiliar
+from simovel.exceptions import ErroRendaFamiliarInsuficente, ErroValorImovel
+from simovel.exceptions import ErroValorImovelAbaixoMin, ErroValorEntrada 
 from rest_api.models.integracao import Multi360Model
 from rest_api.models.simulacao import CidadeModel, EstadoModel, PessoaModel
 from rest_api.models.simulacao import SimulacaoModel
 from rest_api.schemas.simulacao import EstadoSchema, SimulacaoSchema
-from sims.caixa import OpcaoFinanciamento, SimulacaoResultadoCaixa
-from sims.caixa import SimuladorCaixa, TipoFinanciamento as TipoFinanciamentoCaixa
-from sims.caixa import TipoImovel as TipoImovelCaixa
-from sims.bradesco import SimulacaoResultadoBradesco, SimuladorBradesco
-from sims.bradesco import TipoFinanciamento as TipoFinanciamentoBradesco
-from sims.bradesco import TipoImovel as TipoImovelBradesco
-from sims.itau import SimuladorItauS, SimuladorItauL, SimulacaoResultadoItau
-from sims.itau import TipoImovel as TipoImovelItau
-from sims.santander import SimuladorSantanderL, SimulacaoResultadoBase
-from sims.base import Banco, SimuladorBase, SimuladorBaseL, SiteImobiliaria, TipoFinanciamento
-from config.integracao import Multi360 as ConfMulti360
-from config.geral import Bradesco, Parametros, SiteImobiliaria as ConfSiteImobliaria
-from config.geral import Itau as CfgItau, Santander as CfgSantander
-from config.geral import ItauTipoSimulacao
-from util import Cpf, Fone, FoneFormato, Decimal2, email_aleatorio
-from util import sobrenome_aleatorio
+from simovel.sims.caixa import OpcaoFinanciamento, SimulacaoResultadoCaixa
+from simovel.sims.caixa import SimuladorCaixa, TipoFinanciamento as TipoFinanciamentoCaixa
+from simovel.sims.caixa import TipoImovel as TipoImovelCaixa
+from simovel.sims.bradesco import SimulacaoResultadoBradesco, SimuladorBradesco
+from simovel.sims.bradesco import TipoFinanciamento as TipoFinanciamentoBradesco
+from simovel.sims.bradesco import TipoImovel as TipoImovelBradesco
+from simovel.sims.itau import SimuladorItauS, SimuladorItauL, SimulacaoResultadoItau
+from simovel.sims.itau import TipoImovel as TipoImovelItau
+from simovel.sims.santander import SimuladorSantanderL, SimulacaoResultadoBase
+from simovel.sims.base import Banco, SimuladorBase, SimuladorBaseL, SiteImobiliaria, TipoFinanciamento
+from simovel.config.integracao import Multi360 as ConfMulti360
+from simovel.config.geral import Bradesco, Parametros, SiteImobiliaria as ConfSiteImobliaria
+from simovel.config.geral import Itau as CfgItau, Santander as CfgSantander
+from simovel.config.geral import ItauTipoSimulacao
+from simovel.util import Cpf, Fone, FoneFormato, Decimal2, email_aleatorio
+from simovel.util import sobrenome_aleatorio
 
 
 ENDPOINT_MENU_BANCO = 'api_multi360.simulador_menu_banco'
@@ -128,7 +137,7 @@ class Entrada(Enum):
 
 
 # ordem de entradas de acordo com o banco
-ENTRADA_BANCO: dict[tuple] = {
+ENTRADA_BANCO: dict[Banco, tuple] = {
     Banco.CAIXA: (
         Entrada.MENU_BANCO,
         Entrada.MENU_TIPO_IMOVEL,
@@ -189,21 +198,33 @@ class ContactType(Enum):
     SITE = 'SITE'
 
 
-wildcard_fields = fields.Wildcard(fields.String(description='Campos passados pelo Bot.'))
+wildcard_fields = fields.Wildcard(
+    fields.String(description='Campos passados pelo Bot.')
+)
 
 modelo_req_padrao = api.model(
     'req_padrao',
     {
         'clienteId': fields.Integer(),
         'id': fields.Integer(example=215123, required=True),
-        'text': fields.String(description='Texto que o contato digitou', default='GO', required=True),
+        'text': fields.String(
+            description='Texto que o contato digitou',
+            default='GO',
+            required=True
+        ),
         'contact': fields.Nested(
             api.model(
                 'contact',
                 {
                     'uid': fields.Integer(example=15295, required=True),
-                    'type': fields.String(default='WHATSAPP', enum=['WHATSAPP', 'FACEBOOK', 'SITE'], required=True),
-                    'key': fields.String(example='5513999999999', required=True),
+                    'type': fields.String(
+                        default='WHATSAPP',
+                        enum=['WHATSAPP', 'FACEBOOK', 'SITE'],
+                        required=True
+                    ),
+                    'key': fields.String(
+                        example='5513999999999', required=True
+                    ),
                     'name': fields.String(example='Robson', required=True),
                     'fields': wildcard_fields,
                 }
@@ -218,25 +239,39 @@ modelo_req_padrao = api.model(
 modelo_aninhado_anexos = api.model(
     'resp_anexos',
     {
-        'position': fields.String(description='Posição do anexo', deafault='BEFORE', enum=['BEFORE', 'AFTER'], required=True),
-        'type': fields.String(description='Tipo do anexo', default='IMAGE', enum=['IMAGE', 'DOCUMENT', 'TEXT'], required=True),
+        'position': fields.String(
+            description='Posição do anexo',
+            deafault='BEFORE',
+            enum=['BEFORE', 'AFTER'],
+            required=True
+        ),
+        'type': fields.String(
+            description='Tipo do anexo',
+            default='IMAGE',
+            enum=['IMAGE', 'DOCUMENT', 'TEXT'],
+            required=True
+        ),
         'name': fields.String(description='Nome do anexo', required=True),
-        'url': fields.String(description='Caminho onde tá o arquivo estático', required=True)
+        'url': fields.String(
+            description='Caminho onde tá o arquivo estático', required=True
+        )
     },
     description='lista de anexos que serão enviados.'
 )
 
 modelo_aninhado_callback = api.model(
-        'resp_callback',
-        {
-            'endpoint': fields.String(descrpition='Caminho que será solicitado', required=True),
-            'data': fields.Nested(
-                api.model(
-                    'callback_data',
-                    {}
-                )
+    'resp_callback',
+    {
+        'endpoint': fields.String(
+            descrpition='Caminho que será solicitado', required=True
+        ),
+        'data': fields.Nested(
+            api.model(
+                'callback_data',
+                {}
             )
-        }
+        )
+    }
 )
 
 modelo_aninhado_itens = api.model(
@@ -310,7 +345,8 @@ class Pessoa(Resource):
 @api.route('/UF')
 class UF(Resource):
     def get(self,):
-        """Obtem todas as cidades de um determinado estado.
+        """
+        Obtem todas as cidades de um determinado estado.
         """
         return estado_schema.dump(
             EstadoModel.query.filter(EstadoModel.uf == 'GO').first()
@@ -687,7 +723,7 @@ class TratamentoRequisicao:
         )
     
     @property
-    def banco(self) -> Banco:
+    def banco(self) -> Banco | None:
         if not self.multi360_model:
             return None
         pessoa: PessoaModel = self.multi360_model.pessoa
@@ -745,10 +781,12 @@ class TratamentoRequisicao:
             
         pessoa = self.multi360_model.pessoa
         simulacao: SimulacaoModel
-        banco: Banco = self.banco
+        banco: Banco | None = self.banco
         if banco is None:
-            if SimuladorBase.apenas_um_banco_habilitado() \
-            and Parametros.SELECIONAR_AUTO_QUANDO_APENAS_UM_BANCO_HABILITADO:
+            if (
+                SimuladorBase.apenas_um_banco_habilitado() and
+                Parametros.SELECIONAR_AUTO_QUANDO_APENAS_UM_BANCO_HABILITADO
+            ):
                 banco = SimuladorBase.obter_primeiro_banco_habilitado()
                 return self._salvar_banco(banco)
             else:
@@ -763,12 +801,14 @@ class TratamentoRequisicao:
             if pessoa.cidade is None:
                 return self._response_proxima_entrada(Entrada.CIDADE)
         
-        if (banco == Banco.CAIXA and simulacao.tipo_financiamento is None) \
-            or (banco == Banco.BRADESCO 
-                and simulacao.tipo_financiamento_bradesco is None):
-            return self._response_proxima_entrada(
-                Entrada.TIPO_FINANCIAMENTO
+        if (
+            (banco == Banco.CAIXA and simulacao.tipo_financiamento is None) or
+            (
+                banco == Banco.BRADESCO and
+                simulacao.tipo_financiamento_bradesco is None
             )
+        ):
+            return self._response_proxima_entrada(Entrada.TIPO_FINANCIAMENTO)
         
         if banco == Banco.CAIXA:
             if pessoa.possui_imovel_cidade is None:
@@ -779,25 +819,37 @@ class TratamentoRequisicao:
         if simulacao.valor_imovel is None:
             return self._response_proxima_entrada(Entrada.VALOR_IMOVEL)
 
-        if banco == Banco.ITAU or banco == Banco.ITAU_L or banco == Banco.SANTANDER:
+        if (
+            banco == Banco.ITAU or
+            banco == Banco.ITAU_L or
+            banco == Banco.SANTANDER
+        ):
             if simulacao.valor_entrada is None:
                 return self._response_proxima_entrada(
                     Entrada.VALOR_ENTRADA_ITAU_SANTANDER
                 )
 
-        if banco == Banco.CAIXA or banco == Banco.BRADESCO \
-        or banco == Banco.ITAU:
+        if (
+            banco == Banco.CAIXA or
+            banco == Banco.BRADESCO or
+            banco == Banco.ITAU
+        ):
             if not pessoa.cpf:
                 return self._response_proxima_entrada(Entrada.CPF)
         
-        if self.multi360_model.type != ContactType.WHATSAPP.value and \
-            not pessoa.fone:
+        if (
+            self.multi360_model.type != ContactType.WHATSAPP.value and
+            not pessoa.fone
+        ):
             return self._response_proxima_entrada(Entrada.CELULAR)
 
         # somente bradesco não precisa definir renda pois é a partir
         # do valor financiamento
-        if banco != Banco.BRADESCO and banco != Banco.ITAU \
-        and simulacao.renda_bruta is None:
+        if (
+            banco != Banco.BRADESCO and
+            banco != Banco.ITAU and
+            simulacao.renda_bruta is None
+        ):
             return self._response_proxima_entrada(Entrada.RENDA_FAMILIAR)
 
         if pessoa.data_nasc is None:
@@ -808,8 +860,11 @@ class TratamentoRequisicao:
                 return self._response_proxima_entrada(
                     Entrada.MENU_MAIS_DE_UM_COMPRADOR_DEPENDENTE
                 )
-            if pessoa.mais_de_um_comprador_dependente \
-                and pessoa.data_nasc_conjuge is None:
+
+            if (
+                pessoa.mais_de_um_comprador_dependente and
+                pessoa.data_nasc_conjuge is None
+            ):
                 return self._response_proxima_entrada(
                     Entrada.DATA_NASCIMENTO_CONJUGE
                 )
@@ -2603,19 +2658,26 @@ def _response_tipo_menu(txt: str, opcoes: list, endpoint: str,
     }, 200
 
 
-def adicionar_anexo_response(lista: list, name: str, url: str, 
-                position: str='BEFORE', type: str='DOCUMENT'):
-    lista.append(
-        {
-            'position': position,
-            'type': type,
-            'name': name,
-            'url': url      #'text': url
-        }
-    )
+def adicionar_anexo_response(
+    lista: list,
+    name: str,
+    url: str,
+    position: str='BEFORE',
+    type: str='DOCUMENT'
+):
+    lista.append({
+        'position': position,
+        'type': type,
+        'name': name,
+        'url': url      #'text': url
+    })
 
 
-def _response_tipo_informacao(txt: str, anexos: list=[]) -> tuple[dict, int]:
+def _response_tipo_informacao(
+    txt: str,
+    anexos: list=[]
+) -> tuple[dict, int]:
+
     tipo: TipoResposta = TipoResposta.INFORMACAO
 
     return {
@@ -2624,12 +2686,18 @@ def _response_tipo_informacao(txt: str, anexos: list=[]) -> tuple[dict, int]:
         'attachments': anexos,
     }, 200
 
-def _response_tipo_criar_atendimento(dpto_uuid: str, usuario_uuid: str = None
-                                                       ) -> tuple[dict, int]:
+
+def _response_tipo_criar_atendimento(
+    dpto_uuid: str,
+    usuario_uuid: str = None
+) -> tuple[dict, int]:
+
     tipo: TipoResposta = TipoResposta.CRIAR_ATENDIMENTO
     r: dict = {
         'type': tipo.value,
         'departmentUUID': dpto_uuid
     }
+    
     if usuario_uuid: r['userUUID'] = usuario_uuid
     return r
+

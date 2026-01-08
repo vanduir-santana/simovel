@@ -6,9 +6,9 @@
 __author__ = 'Vanduir Santana Medeiros'
 __version__ = '0.2'
 
-from sims.base import Banco, SimuladorBase, SimulacaoResultadoBase
-from sims.base import SimuladorBaseL
-from util import Decimal2
+from simovel.sims.base import Banco, SimuladorBase, SimulacaoResultadoBase
+from simovel.sims.base import SimuladorBaseL
+from simovel.util import Decimal2
 
 
 TITULO = 'Resultado Simulação Santander'

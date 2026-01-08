@@ -7,7 +7,11 @@ Autor: Vanduir Santana Medeiros
 
 .:: Descrição ::.
 
-Esta é uma integração responsável por receber os dados em formato json do 
+ATUALIZAÇÃO: não recebe mais dados do chatbot, funciona como lib e API. Os
+ajustes deveram ser feitos, exclusão da parte relativa ao chatbot anterior,
+pois será usada pra Chat com IA.
+
+EXCLUIR: Esta é uma integração responsável por receber os dados em formato json do 
 chatbot do Whatsapp e fazer uma simulação de compra de imóvel nos bancos da 
 Caixa, Bradesco, Itaú e Santander.
 
@@ -16,6 +20,10 @@ Caixa, Bradesco, Itaú e Santander.
 
 Pra instalar basta seguir os passos abaixo. Foi testado no Debian
 Buster.
+
+ATUALIZAÇÃO: não usa mais o venv, invés de isso usa o uv. Logo não é
+necessário instalar nem o pip, nem o venv. O uv já cuida do gerenciamento de
+pacotes e ambiente virtual.
 
 -> Instalar python3-pip:
   # apt install python3-pip

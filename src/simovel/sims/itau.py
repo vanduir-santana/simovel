@@ -18,13 +18,13 @@ from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.common.exceptions import TimeoutException
-from sims.base import Banco, SimuladorBase, SimulacaoResultadoBase
-from sims.base import SimuladorBaseL
-from util import Cpf, Decimal2, Fone
-from exc import ErroResultadoSimulacao, ErroTipoImovel
+from simovel.sims.base import Banco, SimuladorBase, SimulacaoResultadoBase
+from simovel.sims.base import SimuladorBaseL
+from simovel.util import Cpf, Decimal2, Fone
+from simovel.exceptions import ErroResultadoSimulacao, ErroTipoImovel
 from selenium.webdriver.common.keys import Keys
 from time import sleep
-from config.geral import Parametros
+from simovel.config.geral import Parametros
 
 
 class TipoImovel(Enum):

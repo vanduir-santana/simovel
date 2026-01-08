@@ -12,18 +12,18 @@ from decimal import Decimal
 from bs4 import BeautifulSoup
 import requests
 import time
-from sims.base import Banco, SimuladorBase, SimulacaoResultadoBase
-from sims.base import TipoFinanciamento
-from config.geral import Parametros
-import config.geral
+from simovel.sims.base import Banco, SimuladorBase, SimulacaoResultadoBase
+from simovel.sims.base import TipoFinanciamento
+from simovel.config.geral import Parametros
+from simovel.config import geral as config_geral
 from enum import Enum, auto
-from exc import ErroDataNascimento, ErroDataNascimentoConjuge
-from exc import ErroFinanciarDespesas, ErroFormaPagamentoInvalida
-from exc import ErroPrazo, ErroSeguradoraInvalida
-from exc import ErroSistemaAmortizacaoInvalido, ErroSituacaoImovel
-from exc import ErroTipoImovel, ErroValorFinanciamento, ErroValorImovel
-from exc import ErroValorMaxFinanciamento, ErroResultadoCampoNaoRetornado
-from util import Decimal2, Cpf, data_eh_valida
+from simovel.exceptions import ErroDataNascimento, ErroDataNascimentoConjuge
+from simovel.exceptions import ErroFinanciarDespesas, ErroFormaPagamentoInvalida
+from simovel.exceptions import ErroPrazo, ErroSeguradoraInvalida
+from simovel.exceptions import ErroSistemaAmortizacaoInvalido, ErroSituacaoImovel
+from simovel.exceptions import ErroTipoImovel, ErroValorFinanciamento, ErroValorImovel
+from simovel.exceptions import ErroValorMaxFinanciamento, ErroResultadoCampoNaoRetornado
+from simovel.util import Decimal2, Cpf, data_eh_valida
 
 
 class TipoImovel(Enum):
@@ -231,14 +231,14 @@ class SimuladorBradesco(SimuladorBase):
         if not v:
             raise ErroDataNascimentoConjuge('É preciso digitar a data de nascimento do cônjuge.')
         
-        DATA_FORMATOS = config.geral.Parametros.DATA_FORMATOS
+        DATA_FORMATOS = config_geral.Parametros.DATA_FORMATOS
         dt_nasc_conjuge: date = data_eh_valida(sdata=v, formatos=DATA_FORMATOS)
         if not dt_nasc_conjuge:
             raise ErroDataNascimentoConjuge(f'Data {v} inválida.')
         
         hj: date = date.today() - dt_nasc_conjuge
-        if (hj.days / 365.25) < config.geral.Parametros.IDADE_MIN:
-            raise ErroDataNascimentoConjuge(f'Para financiar você precisar ter pelo menos {config.geral.Parametros.IDADE_MIN} anos de idade.')
+        if (hj.days / 365.25) < config_geral.Parametros.IDADE_MIN:
+            raise ErroDataNascimentoConjuge(f'Para financiar você precisar ter pelo menos {config_geral.Parametros.IDADE_MIN} anos de idade.')
         
         self._data_nascimento_conjuge = dt_nasc_conjuge
 

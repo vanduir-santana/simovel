@@ -6,11 +6,12 @@ __version__ = '0.9'
 
 from rest_api.db import db
 from decimal import Decimal
-from util import csv_pra_lista_de_dic
+from simovel.util import csv_pra_lista_de_dic
 from datetime import date, datetime
-from config.geral import Parametros
+from simovel.config.geral import Parametros
 
 UFS_CSV = Parametros.UFS_CSV
+
 
 class BaseModel(db.Model):
     __abstract__ = True
@@ -195,15 +196,18 @@ class EstadoModel(BaseModel):
         return cls.query.filter(cls.uf == uf).first()
 
     @classmethod
-    def inserir_estados(cls, lista_estados: list=None) -> bool:
-        """Insere estados a partir de uma lista de dicionários.
-        Caso não seja passado uma lista com os estados serão importados
-        de um arquivo csv.
+    def inserir_estados(cls, lista_estados: list | None=None) -> bool:
+        """
+        Insere estados a partir de uma lista de dicionários. Caso não
+        seja passado uma lista com os estados serão importados de um
+        arquivo csv.
         """
         if not lista_estados:
             nomes_campos = ('nome', 'uf')
-            lista_estados = csv_pra_lista_de_dic(UFS_CSV, 
-                        nomes_campos=nomes_campos)
+            lista_estados = csv_pra_lista_de_dic(
+                UFS_CSV, 
+                nomes_campos=nomes_campos
+            )
 
             if not lista_estados:
                 return False
@@ -225,16 +229,22 @@ class EstadoModel(BaseModel):
 
     @classmethod
     def obter_cidades(cls, uf: str='GO', lista_dicts: bool=True) -> list:
-        """Obtém cidades como uma lista de dicionários.
-        Se :lista_dicts True retorna uma lista de dicionários, caso contrário
-        retorna uma lista de tuplas (útil pra usar com a lib NGram).
+        """
+        Obtém cidades como uma lista de dicionários.
+        Se :lista_dicts True retorna uma lista de dicionários, caso
+        contrário retorna uma lista de tuplas (útil pra usar com a lib
+        NGram).
 
         Args:
-            uf (str, optional): UF de onde serão obtidas as cidades. Defaults to 'GO'.
-            lista_dicts (bool, optional): quando True retonra uma lista dicionário se for False retorna uma lista de tuplas. Defaults to True.
+            uf (str, optional): UF de onde serão obtidas as cidades.
+              Defaults to 'GO'.
+            lista_dicts (bool, optional): quando True retonra uma lista
+              dicionário se for False retorna uma lista de tuplas.
+              Defaults to True.
 
         Returns:
-            list: retorna uma lista de dicionários ou de tuplas, depende do parâmetro lista_dicts
+            list: retorna uma lista de dicionários ou de tuplas,
+              depende do parâmetro lista_dicts
         """
         if not uf:
             print('Precisa setar UF pra obter cidades.')

@@ -1,43 +1,67 @@
 #!/usr/bin/env python
 # coding: utf-8
-"""Base Simulador de Crédito Imobiliário
-"""
-__version__ = '0.6'
+"""Base Simulador de Crédito Imobiliário"""
+
+from __future__ import annotations
+
+__version__ = '0.11'
 __author__ = 'Vanduir Santana Medeiros'
 
-
-from ast import Param
 from enum import Enum, auto
 from decimal import Decimal
-import enum
-from typing import Type
-
+from datetime import date, timedelta
 import requests
-from util import Decimal2, Cpf, Fone, FoneFormato, FoneTam, data_eh_valida, email_valido
-from datetime import date
-from exc import ErroEmail, ErroNomeCurto, ErroResultadoSimulacao, ErroResultadoTituloInvalido, ErroValorEntrada, ErroValorEntradaAbaixoPermitido, ErroValorEntradaAcimaPermitido, ErroValorImovel
-from exc import ErroValorImovelAbaixoMin, ErroCPF, ErroCelular
-from exc import ErroBancoInvalido, ErroRendaFamiliar, ErroDataNascimento
-from exc import ErroPrazo, ErroUF
-from config.geral import Parametros, Itau as CfgItau, Bradesco as ConfigBradesco
-from config.geral import Santander as CfgSantander
+from abc import ABC, abstractmethod
+from typing import Self
+
+from simovel.util import (
+    Decimal2,
+    Cpf,
+    Fone,
+    FoneTam,
+    data_eh_valida,
+    email_valido
+)
+from simovel.exceptions import (
+    ErroEmail,
+    ErroNomeCurto,
+    ErroResultadoSimulacao,
+    ErroValorEntrada,
+    ErroValorEntradaAbaixoPermitido,
+    ErroValorEntradaAcimaPermitido,
+    ErroValorImovel
+)
+from simovel.exceptions import (
+    ErroValorImovelAbaixoMin, ErroCPF, ErroCelular
+)
+from simovel.exceptions import (
+    ErroBancoInvalido, ErroRendaFamiliar, ErroDataNascimento
+)
+from simovel.exceptions import ErroPrazo, ErroUF
+from simovel.config.geral import (
+    Parametros, Itau as CfgItau, Bradesco as ConfigBradesco
+)
+from simovel.config.geral import Santander as CfgSantander
 
 
 UFS = (
-    'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
-    'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP',
-    'SE', 'TO', 'DF'
+    'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'ES', 'GO', 'MA', 'MT', 'MS',
+    'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR',
+    'SC', 'SP', 'SE', 'TO', 'DF'
 )
 
 
 class Banco(Enum):
     CAIXA = 1
     BRADESCO = 2
-    ITAU = 3                        # padrão é adquirir direto do site itaú através do selenium
+    # padrão é adquirir direto do site itaú através do selenium
+    ITAU = 3
     ITAU_L = 4
     SANTANDER = 5
-    ITAU_E_SANTANDER_L = 6          # quando usar api L pd extrair os
-                                    # dados dos dois de uma só vez
+    # quando usar api L pd extrair os
+    # dados dos dois de uma só vez
+    ITAU_E_SANTANDER_L = 6
+    
 
 class TipoFinanciamento(Enum):
     """Tipo de financiamento (Caixa), tipo imóvel (Bradesco). Cada 
@@ -54,41 +78,30 @@ class TipoFinanciamento(Enum):
 #    HTML = auto()           # gera uma página html
 
 
-#class TipoImovel(Enum):
-#    RESIDENCIAL = auto()
-#    COMERCIAL = auto()
-
-
-class SimuladorBase:
+class SimuladorBase(ABC):
     URL1 = ''
     URL2 = ''
     
     def __init__(self, banco: Banco=Banco.CAIXA) -> None:
-        self._banco: Banco = None
-        self.banco = banco
-
-        #self._tipo_financiamento = TipoFinanciamento.NOVO
+        self._banco: Banco = banco
         self._valor_imovel: Decimal2 = Decimal2('0')
         self._uf: str = 'GO'
         self._cpf: Cpf = Cpf(cpf='')
         self._celular: str = ''
         self._renda_familiar: Decimal2 = Decimal2(0)
-        self._data_nascimento: date = ''
-        #self._possui_relacionamento_caixa = False
-        #self._tres_anos_fgts: bool = False
-        #self._mais_de_um_comprador_dependente: bool = False
-        #self._opcao_financiamento = OpcaoFinanciamento.PROGRAMA_CASA_VERDE_AMARELA
+        self._data_nascimento: date | str = ''
         self._prazo: int = 0
         self._prazo_max: int = 0
-        self._prazo_min: int = 1 if self.banco != Banco.BRADESCO else ConfigBradesco.PRAZO_MIN
+
+        self._prazo_min: int
+        
+        if self.banco != Banco.BRADESCO:
+            self._praxo_min = 1
+        else:
+            self._prazo_min = ConfigBradesco.PRAZO_MIN
+
         self._valor_entrada: Decimal2 = Decimal2('0')
         self._checar_limite_valor_entrada: bool = False
-        #self._cod_sistema_amortizacao = 'undefined'
-        #self._prestacao_max: Decimal2 = Decimal2('0')
-
-        #self._cidades: list[dict] = []
-        #self.cidades_filtro: list[str] = []
-        #self.cidade_indice: int = -1
 
         # itaú, santander
         self._nome: str = ''
@@ -113,6 +126,9 @@ class SimuladorBase:
             if v:
                 return getattr(Banco, k.upper())
 
+        # caso não tenha nenhum habilitado retorna Caixa
+        return Banco.CAIXA
+
     @property
     def banco(self) -> Banco:
         return self._banco
@@ -129,7 +145,11 @@ class SimuladorBase:
         return self._valor_imovel.formatar_moeda(retirar_rs=True)
 
     @valor_imovel.setter
-    def valor_imovel(self, v: str):
+    def valor_imovel(self, v: str | Decimal2):
+        if isinstance(v, Decimal2):
+            self._valor_imovel = v
+            return
+
         if not v:
             self._valor_imovel = Decimal2(0)
             return
@@ -141,8 +161,12 @@ class SimuladorBase:
             raise ErroValorImovel(erro)
 
         VALOR_IMOVEL_MIN = Decimal2(Parametros.VALOR_IMOVEL_MIN)
+
         if valor_imovel < VALOR_IMOVEL_MIN:
-            raise ErroValorImovelAbaixoMin(f'O valor do imóvel precisa ser de no mínimo: {VALOR_IMOVEL_MIN.formatar_moeda()}')
+            raise ErroValorImovelAbaixoMin(
+                f'O valor do imóvel precisa ser de no mínimo: '
+                f'{VALOR_IMOVEL_MIN.formatar_moeda()}'
+            )
         
         self._valor_imovel = valor_imovel
 
@@ -190,7 +214,7 @@ class SimuladorBase:
     @renda_familiar.setter
     def renda_familiar(self, v: str | float | int | Decimal) -> None:
         if not v:
-            self._renda_familiar = ''
+            self._renda_familiar = Decimal2(0)
             return
         
         d2: Decimal2
@@ -200,14 +224,22 @@ class SimuladorBase:
             raise ErroRendaFamiliar(erro)
 
         RENDA_FAMILIAR_MIN = Decimal2(Parametros.RENDA_FAMLIAR_MIN)
+
         if d2 < RENDA_FAMILIAR_MIN:
-            raise ErroRendaFamiliar(f'O valor da renda familiar bruta de {d2.formatar_moeda()} é baixo, precisa ser de no mínimo: {RENDA_FAMILIAR_MIN.formatar_moeda()}.')
+            raise ErroRendaFamiliar(
+                f'O valor da renda familiar bruta de {d2.formatar_moeda()} é '
+                f'baixo, precisa ser de no mínimo: '
+                f'{RENDA_FAMILIAR_MIN.formatar_moeda()}.'
+            )
 
         self._renda_familiar = d2
     
     @property
     def data_nascimento(self) -> str:
-        return self._data_nascimento.strftime('%d/%m/%Y') if self._data_nascimento else ''
+        if self._data_nascimento and isinstance(self._data_nascimento, date):
+            return self._data_nascimento.strftime('%d/%m/%Y')
+        
+        return ''
 
     @data_nascimento.setter
     def data_nascimento(self, v: str):
@@ -215,13 +247,18 @@ class SimuladorBase:
             raise ErroDataNascimento('É preciso digitar a data de nascimento')
         
         DATA_FORMATOS = Parametros.DATA_FORMATOS
-        dt_nasc: date = data_eh_valida(sdata=v, formatos=DATA_FORMATOS)
+        dt_nasc: date | None = data_eh_valida(sdata=v, formatos=DATA_FORMATOS)
+
         if not dt_nasc:
             raise ErroDataNascimento(f'Data {v} inválida.')
         
-        hj: date = date.today() - dt_nasc
+        hj: timedelta = date.today() - dt_nasc
+
         if (hj.days / 365.25) < Parametros.IDADE_MIN:
-            raise ErroDataNascimento(f'Para financiar você precisar ter pelo menos {Parametros.IDADE_MIN} anos de idade.')
+            raise ErroDataNascimento(
+                f'Para financiar você precisar ter pelo menos '
+                f'{Parametros.IDADE_MIN} anos de idade.'
+            )
         
         self._data_nascimento = dt_nasc
 
@@ -246,10 +283,15 @@ class SimuladorBase:
             ErroPrazo: Prazo precisa ser inteiro.
         """
         v = self._validar_prazo(v)
+
         if self._prazo_max and v > self._prazo_max:
             raise ErroPrazo(f'Prazo acima do prazo máximo: {self.prazo_max}.')
+
         if v < self._prazo_min:
-            raise ErroPrazo(f'Prazo abaixo do prazo mínimo: {self._prazo_min}.')
+            raise ErroPrazo(
+                f'Prazo abaixo do prazo mínimo: {self._prazo_min}.'
+            )
+
         self._prazo = v
     
     @property
@@ -265,14 +307,13 @@ class SimuladorBase:
     
     @prazo_max.setter
     def prazo_max(self, v):
-        """Defini prazo máximo em meses.
+        """
+        Defini prazo máximo em meses.
 
         Args:
-             v (str or int): o prazo pode ser tanto em string no padrão 
+             v (str or int): o prazo pode ser tanto em string no padrão
                 da caixa (prazo meses) quanto um int.
         """
-        #if self._banco == Banco.ITAU:
-        #    raise ValueError('Não é permitido definir prazo máximo pra banco Itaú. Ver configs.')
         self._prazo_max = self._validar_prazo(v)
 
     @property
@@ -293,7 +334,12 @@ class SimuladorBase:
             if ' ' in v:
                 prazo: str = ''
                 match self._banco:
-                    case (Banco.CAIXA | Banco.ITAU | Banco.ITAU_L | Banco.SANTANDER):
+                    case (
+                        Banco.CAIXA |
+                        Banco.ITAU |
+                        Banco.ITAU_L |
+                        Banco.SANTANDER
+                    ):
                         prazo = v.split(' ')[0]
                     case Banco.BRADESCO:
                         l: list = v.split(' ')
@@ -339,9 +385,6 @@ class SimuladorBase:
     
     @checar_limite_valor_entrada.setter
     def checar_limite_valor_entrada(self, v: bool):
-        if type(v) is not bool:
-            raise TypeError('Tipo checar_limite_valor_entrada precisa ser bool.')
-
         self._checar_limite_valor_entrada = v
 
     # propriedades itaú, santander
@@ -351,45 +394,60 @@ class SimuladorBase:
 
     @valor_entrada.setter
     def valor_entrada(self, v: str | Decimal2) -> None:
-        """Defini o valor da entrada.
+        """
+        Define o valor da entrada.
 
         Args:
             v (str | Decimal): valor da entrada.
 
         Raises:
             ErroValorEntrada: valor inválido.
-            ErroValorEntradaAcimaPermitido: valor da entrada acima do permitido.
-            ErroValorEntradaAcimaPermitido: valor da entrada acima do percentual permitido
-            ErroValorEntradaAbaixoPermitido: valor da entrada abaixo do permitido.
+            ErroValorEntradaAcimaPermitido: valor da entrada acima do
+              permitido.
+            ErroValorEntradaAcimaPermitido: valor da entrada acima do
+              percentual permitido
+            ErroValorEntradaAbaixoPermitido: valor da entrada abaixo do
+              permitido.
         """
         if not v:
-            self._valor_entrada = ''
+            self._valor_entrada = Decimal2(0)
             return
 
         d2: Decimal2
         try:
             d2 = Decimal2.a_partir_de_valor(v)
-        except Exception as erro:
+        except Exception:
             raise ErroValorEntrada('Valor de entrada inválido.')
         
         if d2 >= self._valor_imovel:
             raise ErroValorEntradaAcimaPermitido(
-                'Valor da entrada não pode ser igual ou acima do valor do imóvel.'
+                'Valor da entrada não pode ser igual ou acima do valor do '
+                'imóvel.'
             )
+
         if self._checar_limite_valor_entrada:
             banco: str = self.banco.name.lower()
             MAX_PERC = Parametros.VALOR_ENTRADA_MAX_PERC
             MIN_PERC = Parametros.VALOR_ENTRADA_MIN_PERC[banco]
-            max_valor_entrada: Decimal2 = Decimal2(self._valor_imovel * (MAX_PERC / 100))
-            min_valor_entrada: Decimal2 = Decimal2(self._valor_imovel * (MIN_PERC / 100))
+            max_valor_entrada = Decimal2(self._valor_imovel * (MAX_PERC / 100))
+            min_valor_entrada = Decimal2(self._valor_imovel * (MIN_PERC / 100))
+            valor_imovel_fmt = self._valor_imovel.formatar_moeda()
+
             if d2 > max_valor_entrada:
+                max_valor_entrada_fmt = max_valor_entrada.formatar_moeda()
+
                 raise ErroValorEntradaAcimaPermitido(
-                    f'Valor da entrada não pode ser acima de {MAX_PERC}% ({max_valor_entrada.formatar_moeda()})do valor do imóvel ({self._valor_imovel.formatar_moeda()}).'
+                    f'Valor da entrada não pode ser acima de {MAX_PERC}% '
+                    f'({max_valor_entrada_fmt})do valor do imóvel '
+                    f'({valor_imovel_fmt}).'
                 )
-            if MIN_PERC is not None \
-               and d2 < min_valor_entrada:
+
+            if MIN_PERC is not None and d2 < min_valor_entrada:
+                min_valor_entrada_fmt = min_valor_entrada.formatar_moeda()
                 raise ErroValorEntradaAbaixoPermitido(
-                    f'Valor da entrada não pode ser menor que {MIN_PERC}% ({min_valor_entrada.formatar_moeda()}) do valor do imóvel ({self._valor_imovel.formatar_moeda()}).'
+                    f'Valor da entrada não pode ser menor que {MIN_PERC}% '
+                    f'({min_valor_entrada_fmt}) do valor do imóvel '
+                    f'({valor_imovel_fmt}).'
                 )
 
         self._valor_entrada = d2
@@ -431,9 +489,10 @@ class SimuladorBase:
         
         self._email = v
 
-    def simular(self) -> 'SimulacaoResultadoBase':
-        """Sobrecarregar esse método."""
-        pass
+    @abstractmethod
+    def simular(self) -> SimulacaoResultadoBase | list[SimulacaoResultadoBase]:
+        """Sobrecarregar esse método nas subclasses."""
+        ...
 
     # def simular_itau(self):
     #     TAXA_JUROS_AO_ANO = Decimal(9.7) / 100
@@ -479,15 +538,26 @@ class SimuladorBase:
 
 
 class SimuladorBaseL(SimuladorBase):
-    """Implementação simulador de crédito imobiliário Itaú e Santander
+    """
+    Implementação simulador de crédito imobiliário Itaú e Santander
     baseado na API do sistema Loft.
     """
-    URL = 'https://credit-bff.loft.com.br/mortgage-simulation/potential_with_bank_rates'
+    URL = (
+        'https://credit-bff.loft.com.br/mortgage-simulation/'
+        'potential_with_bank_rates'
+    )
 
-    def __init__(self, banco: Banco, nome: str, email: str, 
-            valor_imovel: str | Decimal2, valor_entrada: str | Decimal2,
-            data_nascimento: str, prazo: int, 
-            renda_familiar: str | Decimal2) -> None:
+    def __init__(
+        self,
+        banco: Banco,
+        nome: str,
+        email: str, 
+        valor_imovel: str | Decimal2,
+        valor_entrada: str | Decimal2,
+        data_nascimento: str,
+        prazo: int, 
+        renda_familiar: str | Decimal2
+    ) -> None:
         super().__init__(banco)
         self.nome = nome
         self.email = email
@@ -498,15 +568,22 @@ class SimuladorBaseL(SimuladorBase):
         self.renda_familiar = renda_familiar
 
     @classmethod
-    def a_partir_de_obj_limpo(cls) -> 'SimuladorBaseL':
-        """Retorna objeto sem definir nenum atributo.
+    def a_partir_de_obj_limpo(cls: type[Self]) -> Self:
+        """
+        Retorna objeto sem definir nenhum atributo.
 
         Returns:
             SimuladorBaseL: objeto a ser retornado
         """
         return cls(
-            Banco.ITAU, 'Bastião Teste', 'teste@uai.com', 
-            '', '', '08/02/1998', 30, ''
+            Banco.ITAU,
+            'Bastião Teste',
+            'teste@uai.com',
+            '',
+            '',
+            '08/02/1998',
+            30,
+            ''
         )
 
     def _obter_headers(self) -> dict:
@@ -518,17 +595,30 @@ class SimuladorBaseL(SimuladorBase):
             'Content-Type': 'application/json;charset=UTF-8',
             'Host': 'credit-bff.loft.com.br',
             'Origin': 'https://loft.com.br',
-            'Referer': 'https://loft.com.br/loftcred/financiamento-imobiliario/simulador?origin=LANDING_PAGE',
-            'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="99", "Opera";v="85"',
+            'Referer': (
+                'https://loft.com.br/loftcred/financiamento-imobiliario/'
+                'simulador?origin=LANDING_PAGE'
+            ),
+            'sec-ch-ua': (
+                '" Not A;Brand";v="99", "Chromium";v="99", "Opera";v="85"'
+            ),
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': "Windows",
             'Sec-Fetch-Dest': 'empty',
             'Sec-Fetch-Mode': 'cors',
             'Sec-Fetch-Site': 'same-site',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36 OPR/85.0.4341.60'
+            'User-Agent': (
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                '(KHTML, like Gecko) Chrome/99.0.4844.84 '
+                'Safari/537.36 OPR/85.0.4341.60'
+            )
         }
 
     def _obter_payload(self) -> dict:
+        birth_date: str = '' 
+        if isinstance(self._data_nascimento, date):
+            birth_date = self._data_nascimento.strftime('%Y-%m-%d')
+
         return {
             "downPayment": self._valor_entrada.str_inteiro(),
             "income": self._renda_familiar.str_inteiro(),
@@ -538,7 +628,8 @@ class SimuladorBaseL(SimuladorBase):
             "user": {
                 "name": self.nome,
                 "email": self.email,
-                "birthDate": self._data_nascimento.strftime('%Y-%m-%d'),    #"2000-02-01"
+                #"2000-02-01"
+                "birthDate": birth_date
             },
             "banksRates": [],
             "totalEffectiveCost": 0,
@@ -548,7 +639,8 @@ class SimuladorBaseL(SimuladorBase):
         }
 
     def _extrair_simulacao(self) -> list:
-        """Extrai simulação do json retornado da API Loft.
+        """
+        Extrai simulação do json retornado da API Loft.
 
         Raises:
             ErroResultadoSimulacao: sem nenhum retorno.
@@ -564,10 +656,13 @@ class SimuladorBaseL(SimuladorBase):
 
         r = requests.post(self.URL, json=payload, headers=headers)
         json: dict = r.json()
+
         if not json:
             raise ErroResultadoSimulacao('Resultado da simulação vazio.')
         elif not 'banksSimulation' in json and 'statusCode' in json:
-            raise ErroResultadoSimulacao('Resultado da simulação retornou erro.')
+            raise ErroResultadoSimulacao(
+                'Resultado da simulação retornou erro.'
+            )
 
         resultados: list[dict] = []
         T_ITAU, T_SANTANDER = 'Itaú', 'Santander'
@@ -576,13 +671,15 @@ class SimuladorBaseL(SimuladorBase):
             resultados.append(json['banksSimulation'][2])
             if resultados[0]['bankProvider'] != T_ITAU:
                 raise ErroResultadoSimulacao(
-                    f'Banco {T_ITAU} não encontrado no resultado da simulação.'
+                    f'Banco {T_ITAU} não encontrado no resultado '
+                    f'da simulação.'
                 )
         elif self._banco == Banco.SANTANDER:
             resultados.append(json['banksSimulation'][3])
             if resultados[0]['bankProvider'] != T_SANTANDER:
                 raise ErroResultadoSimulacao(
-                    f'Banco {T_SANTANDER} não encontrado no resultado da simulação.'
+                    f'Banco {T_SANTANDER} não encontrado no resultado '
+                    f'da simulação.'
                 )
         elif self._banco == Banco.ITAU_E_SANTANDER_L:
             resultados.append(json['banksSimulation'][2])
@@ -590,34 +687,51 @@ class SimuladorBaseL(SimuladorBase):
             if resultados[0]['bankProvider'] != T_ITAU \
                or resultados[1]['bankProvider'] != T_SANTANDER:
                 raise ErroResultadoSimulacao(
-                    f'Banco {T_ITAU} ou {T_SANTANDER} não encontrado no resultado da simulação.'
+                    f'Banco {T_ITAU} ou {T_SANTANDER} não encontrado no '
+                    f'resultado da simulação.'
                 )
         else:
             raise ErroResultadoSimulacao(
-                f'Banco {self._banco} não implementado no resultado da simulação.'
-            )        
-        # #return d_banco['simulation']
+                f'Banco {self._banco} não implementado no resultado '
+                f'da simulação.'
+            )
+
         return resultados
     
 
 class SimuladorItauSantanderL(SimuladorBaseL):
-    """Implementação simuladores de crédito imobiliário Itaú e Santander
-    baseado na API do sistema Loft.
+    """
+    Implementação simuladores de crédito imobiliário Itaú e
+    Santander baseado na API do sistema Loft.
     """
     TITULO_RES1 = 'Resultado Simulação Itaú'
     TITULO_RES2 = 'Resultado Simulação Santander'
-    def __init__(self, nome: str, email: str, 
-            valor_imovel: str | Decimal2, valor_entrada: str | Decimal2,
-            data_nascimento: str, prazo: int, 
-            renda_familiar: str | Decimal2) -> None:
+
+    def __init__(
+        self,
+        nome: str,
+        email: str, 
+        valor_imovel: str | Decimal2,
+        valor_entrada: str | Decimal2,
+        data_nascimento: str,
+        prazo: int, 
+        renda_familiar: str | Decimal2
+    ) -> None:
         
         super().__init__(
-            Banco.ITAU_E_SANTANDER_L, nome, email, valor_imovel, valor_entrada,
-            data_nascimento, prazo, renda_familiar
+            Banco.ITAU_E_SANTANDER_L,
+            nome,
+            email,
+            valor_imovel,
+            valor_entrada,
+            data_nascimento,
+            prazo,
+            renda_familiar
         )
 
     def simular(self) -> list['SimulacaoResultadoBase']:
-        """Simulador pros bancos Itaú e Santander. Retorna o resultado em
+        """
+        Simulador pros bancos Itaú e Santander. Retorna o resultado em
         apenas uma chamada.
 
         Returns:
@@ -628,29 +742,30 @@ class SimuladorItauSantanderL(SimuladorBaseL):
         res_itau: dict = resultados[0]['simulation']
         res_san: dict = resultados[1]['simulation']
         sim_res_itau: SimulacaoResultadoBase
-        sim_res_san: SimulacaoResultadoBase
+        sim_res_santander: SimulacaoResultadoBase
         
         sim_res_itau = SimulacaoResultadoBase.a_partir_de_valores_l(
             self,
             self.TITULO_RES1,
             res_itau
         )
-        sim_res_san = SimulacaoResultadoBase.a_partir_de_valores_l(
+
+        sim_res_santander = SimulacaoResultadoBase.a_partir_de_valores_l(
             self,
             self.TITULO_RES2,
             res_san
         )
-        return [sim_res_itau, sim_res_san]
 
+        return [sim_res_itau, sim_res_santander]
 
 
 class SimulacaoResultadoBase:
-    """Resultado da simulação, contém os dados do retorno da simulação,
+    """
+    Resultado da simulação, contém os dados do retorno da simulação,
     entre eles o título, valor do imóvel, prazo, valor do 
     financiamento, valor da entrada (Caixa), sistema de amortização,
     valor da prestação, primeira e última prestação (Caixa e Itaú).
     """
-    #def __init__(self, tipo_resultado: TipoResultado=None) -> None:
     def __init__(self) -> None:
         self._titulo: str = ''
         self._valor_imovel: Decimal2 = Decimal2(0)
@@ -668,14 +783,20 @@ class SimulacaoResultadoBase:
         # itaú e santander
         self._somatorio_parcelas: Decimal2 = Decimal2('0')
         
-        self._obj_simulador: SimuladorBase = None
+        self._obj_simulador: SimuladorBase
         self._negrito_resultado: bool = True
-        self._b: str = '*'
+        self._negrito_abertura: str = '*'
+        self._negrito_fechamento: str = '*'
 
     @classmethod
-    def a_partir_de_valores_l(cls, obj_simulador: SimuladorBase, 
-                    titulo: str, v: dict) -> 'SimulacaoResultadoBase':
-        """Retorna um objeto a partir dos valores do resultado da API L.
+    def a_partir_de_valores_l(
+        cls,
+        obj_simulador: SimuladorBase, 
+        titulo: str,
+        v: dict
+    ) -> 'SimulacaoResultadoBase':
+        """
+        Retorna um objeto a partir dos valores do resultado da API L.
 
         Args:
             v (dict): dict contendo os campos a serem extraídos.
@@ -721,12 +842,15 @@ class SimulacaoResultadoBase:
         elif type(v) is str:
             try:
                 self._valor_imovel = Decimal2.a_partir_de_valor(v)
-            except ValueError as erro:
+            except ValueError:
                 raise ErroValorImovel(
-                    'Valor imóvel do resultado da simulação inválido na conv.')
-        elif type(v) is not float or type(v) is not Decimal2:
+                    'Valor imóvel do resultado da simulação inválido '
+                    'na conv.'
+                )
+        elif type(v) is not float and type(v) is not Decimal2:
             raise ErroValorImovel(
-                'Valor imóvel do resultado da simulação tipo inválido.')
+                'Valor imóvel do resultado da simulação tipo inválido.'
+            )
         else:
             self._valor_imovel = Decimal2(v)
             
@@ -740,8 +864,9 @@ class SimulacaoResultadoBase:
             if ' ':
                 v = int(v.split(' ')[0])
         if type(v) is not int and type(v) is str and not v.isdigit():
-            raise('Prazo do resultado da simulação inválido.')
-        self._prazo = v
+            raise ValueError('Prazo do resultado da simulação inválido.')
+
+        self._prazo = int(v)
 
     @property
     def valor_financiamento(self) -> str:
@@ -780,9 +905,8 @@ class SimulacaoResultadoBase:
             if v.endswith('a.a.'):  # itaú (selenium)
                 v = v.split('%')[0]
             return Decimal2.a_partir_de_valor(v)
-        if type(v) is Decimal:
-            return Decimal2(v)
-        elif type(v) is Decimal2:
+
+        if type(v) is Decimal2:
             return v
         elif type(v) is float:
             return Decimal2(str(v))
@@ -861,9 +985,6 @@ class SimulacaoResultadoBase:
 
     @obj_simulador.setter
     def obj_simulador(self, v: SimuladorBase):
-        if not isinstance(v, SimuladorBase):
-            raise TypeError('obj_simulador precisa ser do tipo SimuladorBase')
-        
         self._obj_simulador = v
 
     @property
@@ -872,72 +993,83 @@ class SimulacaoResultadoBase:
 
     @negrito_resultado.setter
     def negrito_resultado(self, v: bool):
-        if not type(v) is bool:
-            raise TypeError('negrito_resultado precisa ser do tipo bool.')
-        self._b: str = '' if not v else '*'            
+        if not v:
+            self._negrito_abertura = ''
+            self._negrito_fechamento = ''
+
         self._negrito_resultado = v
 
     def __str__(self):
         TAM_TRACEJADO = Parametros.TAM_TRACEJADO
         s = self
         # simplificado
-        b: str = self._b
+        # negrito abertura (n) e fechamento (nf)
+        na: str = self._negrito_abertura
+        nf: str = self._negrito_fechamento
         t: str = (
-            f'{b}{s.titulo}{b}\n'
+            f'{na}{s.titulo}{nf}\n'
             f'{"-" * TAM_TRACEJADO}\n'
         )
         if self._obj_simulador:
-            b: str = '' if not self._negrito_resultado else '*'
             t += (
-                f'{b}Valor do Imóvel:{b} {s._obj_simulador.valor_imovel}\n'
-                f'{b}Valor de Entrada:{b} {s._obj_simulador.valor_entrada}\n'
-                #f'Prazo: {s._obj_simulador.prazo}\n'
-                f'{b}Prazo:{b} {s.prazo}\n'
+                f'{na}Valor do Imóvel:{nf} {s._obj_simulador.valor_imovel}\n'
+                f'{na}Valor de Entrada:{nf} {s._obj_simulador.valor_entrada}\n'
+                f'{na}Prazo:{nf} {s.prazo}\n'
             )
         t += (
-            f'{b}Primeira Parcela:{b} {s.primeira_parcela}\n'
-            f'{b}Última Parcela:{b} {s.ultima_parcela}\n'
-            f'{b}Taxa de Juros:{b} {s.taxa_juros}\n'
+            f'{na}Primeira Parcela:{nf} {s.primeira_parcela}\n'
+            f'{na}Última Parcela:{nf} {s.ultima_parcela}\n'
+            f'{na}Taxa de Juros:{nf} {s.taxa_juros}\n'
         )
         t += (
-            f'{b}Somatório das Parcelas:{b} {s.somatorio_parcelas}\n'
-            f'{b}Total Financiado:{b} {s.total_financiado}\n'
+            f'{na}Somatório das Parcelas:{nf} {s.somatorio_parcelas}\n'
+            f'{na}Total Financiado:{nf} {s.total_financiado}\n'
         )
         return t
 
 
 class SiteImobiliaria:
-    """Faz interações com o site da imobiliária e traz os dados pro 
+    """
+    Faz interações com o site da imobiliária e traz os dados pro 
     cliente através de uma URL. Nesse endereço já seram filtrados os
     imóveis de acordo com os dados passados pelo simulador, na faixa
     pretendida.
     """
-    #url_base = 'https://itamarzinimoveis.com.br/imovel?operacao=1&tipoimovel=&imos_codigo=&empreendimento=&destaque=false&vlini=85000.00&vlfim=170000.00&exclusivo=false&cidade=&pais=1&filtropais=false&order=maxval&limit=9&page=0&ttpr_codigo=1'
-    #url_base = 'https://itamarzinimoveis.com.br/imovel?operacao=1&tipoimovel=&imos_codigo=&empreendimento=&destaque=false&vlini={}&vlfim={}&exclusivo=false&cidade=&pais=1&filtropais=false&order=minval&limit=9&page=0&ttpr_codigo=1'
-    #url_base = 'https://www.itamarzinimoveis.com.br/imoveis/a-venda/casa?preco-de-venda=200000~400000'
-    url_base = 'https://www.itamarzinimoveis.com.br/imoveis/a-venda/casa?preco-de-venda={}~{}&ordenar=menor-valor'
+    url_base = (
+        'https://www.itamarzinimoveis.com.br/imoveis/a-venda/casa?'
+        'preco-de-venda={}~{}&ordenar=menor-valor'
+    )
     
-    MSG_VALOR_IMOVEL_TIPO_INVALIDO = 'Valor do imóvel precisa ser float, Decimal2 ou int.'
+    MSG_VALOR_IMOVEL_TIPO_INVALIDO = \
+        'Valor do imóvel precisa ser float, Decimal2 ou int.'
 
-    def __init__(self, valor_imovel_inicial: float|Decimal2|int,
-                       valor_imovel_final: float|Decimal2|int):
-        if (not type(valor_imovel_inicial) in [float, Decimal2, int]
-            or not type(valor_imovel_final) in [float, Decimal2, int]):
+    def __init__(
+        self,
+        valor_imovel_inicial: float | Decimal2 | int,
+        valor_imovel_final: float | Decimal2 | int
+    ):
+        if (
+            not type(valor_imovel_inicial) in [float, Decimal2, int] or
+            not type(valor_imovel_final) in [float, Decimal2, int]
+        ):
             raise ValueError(self.MSG_VALOR_IMOVEL_TIPO_INVALIDO)
+
         self._valor_imovel_inicial = valor_imovel_inicial
         self._valor_imovel_final = valor_imovel_final
         self._url = ''
 
     @classmethod
-    def a_partir_de_valor_imovel(cls, valor_imovel: float|Decimal2|int,
-                                 variacao_perc: int):
+    def a_partir_de_valor_imovel(
+        cls: type[Self],
+        valor_imovel: float | Decimal2 | int,
+        variacao_perc: int
+    ):
         if not type(valor_imovel) in [float, Decimal2, int]:
             raise ValueError(cls.MSG_VALOR_IMOVEL_TIPO_INVALIDO)
 
-        valor_perc = valor_imovel * Decimal2(variacao_perc / 100)
-
-        valor_inicial = Decimal2(int(valor_imovel - valor_perc))
-        valor_final = Decimal2(int(valor_imovel + valor_perc))
+        valor_perc = Decimal2(valor_imovel) * Decimal2(variacao_perc / 100)
+        valor_inicial = Decimal2(int(valor_imovel) - valor_perc)
+        valor_final = Decimal2(int(valor_imovel) + valor_perc)
 
         return cls(valor_inicial, valor_final)
 
