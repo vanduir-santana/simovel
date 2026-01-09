@@ -5,7 +5,6 @@ __version__ = '0.9'
 
 
 from rest_api.db import db
-from decimal import Decimal
 from simovel.util import csv_pra_lista_de_dic
 from datetime import date, datetime
 from simovel.config.geral import Parametros

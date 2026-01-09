@@ -4,7 +4,7 @@
 App API Simulador de Crédito Imobiliário.
 """
 __author__ = 'Vanduir Santana Medeiros'
-__version__ = '0.10'
+__version__ = '0.3'
 
 
 from rest_api.app_factory import create_app

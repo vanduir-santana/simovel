@@ -210,8 +210,6 @@ class SimuladorCaixa(SimuladorBase):
         self._mais_de_um_comprador_dependente: bool = False
         self._possui_relacionamento_caixa = False
         self._servidor_publico = False
-        #self._opcao_financiamento = \
-        #    OpcaoFinanciamento.PROGRAMA_CASA_VERDE_AMARELA
         self._opcao_financiamento = OpcaoFinanciamento('')
         self._valor_entrada: Decimal2 = Decimal2('0')
         self._cod_sistema_amortizacao = 'undefined'
