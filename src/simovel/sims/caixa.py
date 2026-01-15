@@ -40,8 +40,8 @@ from simovel.config.geral import Caixa as CfgCaixa, Parametros
 from simovel.config import layout as config_layout
 from simovel.sims.base import SimuladorBase, Banco
 from simovel.sims.base import SimulacaoResultadoBase
-from rest_api.app_factory import create_app
-from rest_api.models.simulacao import EstadoModel
+from simovel.db.session import SessionLocal
+from simovel.db.models.simulacao import CidadeModel
 
 
 class TipoImovel(Enum):
@@ -544,7 +544,16 @@ class SimuladorCaixa(SimuladorBase):
 
     def obter_cidades_db(self, uf: str='') -> list[dict] | None:
         """
-        Obtém cidades a partir do banco de dados da API.
+        Obtém cidades a partir do banco de dados.
+
+        Em vez de obter do endpoint do Simulador da Caixa, roda-se o
+        comando: 
+
+        $ uv run -m simovel.cli.db bootstrap
+
+        Dessa forma é possível obter UFs, cidades a partir do banco de
+        dados. Pois esse comando busca no endpoint e salva os dados nas
+        tabelas Estado e Cidade.
 
         Args:
             uf (str): sigla do estado.
@@ -561,20 +570,20 @@ class SimuladorCaixa(SimuladorBase):
 
         print(f'Buscando cidades no banco de dados para a UF: {uf}...')
 
-        app = create_app()
-
-        with app.app_context():
-            cidades: list[dict] = EstadoModel.obter_cidades(
-                uf=uf,
-                lista_dicts=True
+        with SessionLocal() as session:
+            cidades: list[CidadeModel] = CidadeModel.obter_cidades_por_uf(
+                session,
+                uf=uf
             )
 
             if len(cidades) == 0:
                 print('Não conseguiu carregar cidades do banco de dados!')
                 return []
 
-            self._cidades = cidades
-            return cidades
+            cidades_list_dict: list[dict] = CidadeModel.cidades_to_list(cidades)
+
+            self._cidades = cidades_list_dict
+            return cidades_list_dict
 
     def obter_cidades(self, uf: str = '') -> list[dict] | None:
         """
@@ -780,7 +789,7 @@ class SimuladorCaixa(SimuladorBase):
         """
         if self.cidade_indice == -1:
             print(
-                'Não foi definido um índice. É preciso obter cidades e'
+                'Não foi definido um índice. É preciso obter cidades e '
                 'depois pesquisar código da cidade por nome.'
             )
             return False

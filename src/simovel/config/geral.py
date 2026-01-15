@@ -8,6 +8,7 @@ __author__ = 'Vanduir Santana Medeiros'
 from enum import Enum
 from decimal import Decimal
 
+from simovel.db.paths import SQLITE_DB_PATH
 
 class ItauTipoSimulacao(Enum):
     SEL = 1
@@ -39,7 +40,7 @@ class Parametros:
     FONE_TAM_MIN = 8
     DDD_PADRAO = 62
     IDADE_MIN = 18
-    DATABASE_URI = 'sqlite:///sim.db'
+    DATABASE_URI = f"sqlite:///{SQLITE_DB_PATH}"
     UFS_CSV = 'rest_api/ufs.csv'
     VALOR_ENTRADA_MIN_PERC = {
         'caixa': None,      # não precisa

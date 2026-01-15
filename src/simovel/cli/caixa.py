@@ -19,8 +19,6 @@ from simovel.exceptions import (
 from simovel.sims.caixa import (
     OpcaoFinanciamento, SimuladorCaixa, TipoImovel, SimulacaoResultadoCaixa
 )
-#from rest_api.models.simulacao import CidadeModel, EstadoModel
-#from rest_api.schemas.simulacao import EstadoSchema
 from simovel.util import Decimal2
 
 __version__ = '0.38'
@@ -398,7 +396,8 @@ def main():
             print('Lendo UF...')
             uf = sim._ler_uf()
             print('Obtendo cidades...')
-            if not sim.obter_cidades(uf):
+            #if not sim.obter_cidades(uf):
+            if not sim.obter_cidades_db(uf):
                 _aguardar_enter()
         elif opcao == Menu.LISTAR_CIDADES:
             if not sim._listar_cidades():

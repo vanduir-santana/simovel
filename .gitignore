@@ -17,3 +17,7 @@ __pycache__/
 *.egg-info
 dist/
 build/
+*.log
+# dados
+simovel/data/
+*.db

@@ -9,9 +9,9 @@ from datetime import date, datetime
 from enum import Enum, auto
 from flask import request, url_for
 from flask_restx import Namespace, Resource, fields
+
 from simovel.exceptions import (
     ErroCPF,
-    ErroCelular,
     ErroDataNascimento,
     ErroPrazo,
     ErroResultadoCampoNaoRetornado,
@@ -20,30 +20,57 @@ from simovel.exceptions import (
     ErroValorEntradaAbaixoPermitido,
     ErroValorEntradaAcimaPermitido
 )
-from simovel.exceptions import ErroValorFinanciamento, ErroValorMaxFinanciamento
-from simovel.exceptions import ErroPrestacaoMax, ErroValorFinanciamentoInferior
-from simovel.exceptions import ErroValorFinanciamentoInferior2
-from simovel.exceptions import ErroObterOpcaoFinanciamento, ErroRendaFamiliar
-from simovel.exceptions import ErroRendaFamiliarInsuficente, ErroValorImovel
-from simovel.exceptions import ErroValorImovelAbaixoMin, ErroValorEntrada 
+from simovel.exceptions import (
+    ErroValorFinanciamento,
+    ErroValorMaxFinanciamento,
+    ErroPrestacaoMax,
+    ErroValorFinanciamentoInferior,
+    ErroValorFinanciamentoInferior2,
+    ErroObterOpcaoFinanciamento,
+    ErroRendaFamiliar,
+    ErroRendaFamiliarInsuficente,
+    ErroValorImovel,
+    ErroValorImovelAbaixoMin,
+    ErroValorEntrada,
+)
 from rest_api.models.integracao import Multi360Model
-from rest_api.models.simulacao import CidadeModel, EstadoModel, PessoaModel
-from rest_api.models.simulacao import SimulacaoModel
+from rest_api.models.simulacao import (
+    CidadeModel, EstadoModel, PessoaModel, SimulacaoModel
+)
 from rest_api.schemas.simulacao import EstadoSchema, SimulacaoSchema
-from simovel.sims.caixa import OpcaoFinanciamento, SimulacaoResultadoCaixa
-from simovel.sims.caixa import SimuladorCaixa, TipoFinanciamento as TipoFinanciamentoCaixa
-from simovel.sims.caixa import TipoImovel as TipoImovelCaixa
-from simovel.sims.bradesco import SimulacaoResultadoBradesco, SimuladorBradesco
-from simovel.sims.bradesco import TipoFinanciamento as TipoFinanciamentoBradesco
-from simovel.sims.bradesco import TipoImovel as TipoImovelBradesco
-from simovel.sims.itau import SimuladorItauS, SimuladorItauL, SimulacaoResultadoItau
-from simovel.sims.itau import TipoImovel as TipoImovelItau
+from rest_api.db import db
+from simovel.sims.caixa import (
+    OpcaoFinanciamento,
+    SimulacaoResultadoCaixa,
+    SimuladorCaixa,
+    TipoFinanciamento as TipoFinanciamentoCaixa,
+    TipoImovel as TipoImovelCaixa
+)
+from simovel.sims.bradesco import (
+    SimulacaoResultadoBradesco,
+    SimuladorBradesco,
+    TipoFinanciamento as TipoFinanciamentoBradesco,
+    TipoImovel as TipoImovelBradesco
+)
+from simovel.sims.itau import (
+    SimuladorItauS,
+    SimuladorItauL,
+    TipoImovel as TipoImovelItau
+)
 from simovel.sims.santander import SimuladorSantanderL, SimulacaoResultadoBase
-from simovel.sims.base import Banco, SimuladorBase, SimuladorBaseL, SiteImobiliaria, TipoFinanciamento
+from simovel.sims.base import (
+    Banco,
+    SimuladorBase,
+    SimuladorBaseL,
+    SiteImobiliaria,
+    TipoFinanciamento
+)
 from simovel.config.integracao import Multi360 as ConfMulti360
-from simovel.config.geral import Bradesco, Parametros, SiteImobiliaria as ConfSiteImobliaria
-from simovel.config.geral import Itau as CfgItau, Santander as CfgSantander
-from simovel.config.geral import ItauTipoSimulacao
+from simovel.config.geral import (
+    Parametros, SiteImobiliaria as ConfSiteImobliaria,
+    Itau as CfgItau, Santander as CfgSantander,
+    ItauTipoSimulacao
+)
 from simovel.util import Cpf, Fone, FoneFormato, Decimal2, email_aleatorio
 from simovel.util import sobrenome_aleatorio
 
@@ -336,7 +363,7 @@ modelo_resp_criar_atendimento = api.model(
 @api.route('/cpf/<cpf>')
 class Pessoa(Resource):
     def get(self, cpf):
-        sim_dados = PessoaModel.buscar_por_cpf(cpf)
+        sim_dados = PessoaModel.buscar_por_cpf(db.session, cpf)
         if sim_dados:
             return simulacao_schema.dump(sim_dados), 200
         return {'message': 'CPF não encontrado'}, 404
@@ -349,7 +376,7 @@ class UF(Resource):
         Obtem todas as cidades de um determinado estado.
         """
         return estado_schema.dump(
-            EstadoModel.query.filter(EstadoModel.uf == 'GO').first()
+            EstadoModel.buscar_por_uf(db.session, 'GO')
         )
 
 
@@ -718,17 +745,22 @@ class TratamentoRequisicao:
         self.req = Requisicao()
         self.entrada = Entrada.NENHUMA
         self.flag_copiar_sim = False
-        self.multi360_model = Multi360Model.buscar_por_key(
+        multi360_model: Multi360Model | None = Multi360Model.buscar_por_key(
+            db.session,
             self.req.contact.key
         )
+        if multi360_model:
+            self.multi360_model = multi360_model
     
     @property
     def banco(self) -> Banco | None:
         if not self.multi360_model:
             return None
+
         pessoa: PessoaModel = self.multi360_model.pessoa
         if not pessoa.simulacoes:
             return None
+
         simulacao: SimulacaoModel = pessoa.simulacoes[0]
         if not simulacao:
             return None
@@ -742,14 +774,18 @@ class TratamentoRequisicao:
         return b
 
     def _adicionar_pessoa(self, ) -> None:
-        estado: EstadoModel
+        estado: EstadoModel | None
         pessoa = PessoaModel(nome=self.req.contact.name, cpf='')
         if self.req.contact.type == ContactType.WHATSAPP.value:
             # quando for contato via whatsapp o campo key é 
             # telefone (ver doc.)
             pessoa.fone = self.req.contact.key
-        estado = EstadoModel.buscar_por_uf(Parametros.UF_PADRAO)
-        if estado: pessoa.estado = estado
+
+        estado = EstadoModel.buscar_por_uf(db.session, Parametros.UF_PADRAO)
+
+        if estado:
+            pessoa.estado = estado
+
         self.multi360_model.pessoa = pessoa
 
     def inicio(self, permitir_copiar_sim: bool=True) -> tuple[dict, int]:
@@ -763,7 +799,8 @@ class TratamentoRequisicao:
                 type=self.req.contact.type, key=self.req.contact.key
             )
             self._adicionar_pessoa()
-            self.multi360_model.adicionar()
+            db.session.add(self.multi360_model)
+            db.session.commit()
 
             #return self._response_proxima_entrada(Entrada.MENU_BANCO)
         else:
@@ -777,7 +814,7 @@ class TratamentoRequisicao:
                 print('-' * 30)
                 print('NÃO encontrou registro na tabela pessoa ao alterar registro, adicionando...')
                 self._adicionar_pessoa()
-                self.multi360_model.atualizar()
+                db.session.commit()
             
         pessoa = self.multi360_model.pessoa
         simulacao: SimulacaoModel
@@ -907,8 +944,9 @@ class TratamentoRequisicao:
         banco: Banco = Banco(self.req.data['valor'])
         return self._salvar_banco(banco)
 
-    def _salvar_banco(self, banco: Banco=None) -> tuple[dict, int]:
-        """Salva o banco (CEF, Bradesco, Itaú, Santander) no banco de dados.
+    def _salvar_banco(self, banco: Banco | None = None) -> tuple[dict, int]:
+        """
+        Salva o banco (CEF, Bradesco, Itaú, Santander) no banco de dados.
         Método usado pra salvar a partir do menu banco e também através do
         método inicio quando estiver habilitado apenas um banco.
 
@@ -939,7 +977,7 @@ class TratamentoRequisicao:
             simulacao: SimulacaoModel = simulacoes[0]
             simulacao.banco = banco.value
 
-        self.multi360_model.atualizar()
+        db.session.commit()
         # volta ao início pra ver campos q estão faltando
         return self._checar_campos()
 
@@ -952,7 +990,8 @@ class TratamentoRequisicao:
         simulacao: SimulacaoModel = simulacoes[0]
         # salvar DB
         simulacao.tipo_imovel = tipo_imovel.value
-        simulacao.atualizar()
+        db.session.commit()
+
         # verifica se o tipo de financiamento é compatível com o tipo imóvel
         if simulacao.tipo_financiamento is not None:
             sim = SimuladorCaixa()
@@ -981,19 +1020,19 @@ class TratamentoRequisicao:
     def questao_cidade(self) -> tuple[dict, int]:
         self.entrada = Entrada.CIDADE
 
-        cidade: str = self.req.text
+        cidade_req: str = self.req.text
         uf: str = Parametros.UF_PADRAO
 
-        if not cidade or len(cidade) < 3:
+        if not cidade_req or len(cidade_req) < 3:
             return self._response_proxima_entrada(
                 Entrada.CIDADE,
                 ConfMulti360.Questao.CIDADE_INVALIDA
             )
 
         sim = SimuladorCaixa()
-        cidades = EstadoModel.obter_cidades(uf=uf, lista_dicts=False)
+        cidades = EstadoModel.obter_cidades(db.session, uf=uf, lista_dicts=False)
         cidades_filtro: list[dict] = sim.procurar2(
-            q=cidade,
+            q=cidade_req,
             l=cidades,
             key=2,
             max_res=ConfMulti360.MAX_RES_MENU_CIDADES
@@ -1002,17 +1041,17 @@ class TratamentoRequisicao:
         if not cidades_filtro:
             return self._response_proxima_entrada(
                 Entrada.CIDADE,
-                ConfMulti360.Questao.CIDADE_PESQUISA_VAZIA.format(cidade)
+                ConfMulti360.Questao.CIDADE_PESQUISA_VAZIA.format(cidade_req)
             )
 
         # se tiver retornado somente uma cidade então salvar cidade 
         # no db
         if len(cidades_filtro) == 1 and cidades_filtro[0]['rank'] == 1.0:
             id: int = cidades_filtro[0]['id']
-            cidade: CidadeModel = CidadeModel.buscar_por_id(id)
+            cidade: CidadeModel | None = CidadeModel.buscar_por_id(db.session, id)
             pessoa: PessoaModel = self.multi360_model.pessoa
             pessoa.cidade = cidade
-            pessoa.atualizar()
+            db.session.commit()
             
             # TODO: detectar modo nova simulação (alteração) e não 
             # pular pois está indo pra tipo financ. deve voltar 
@@ -1047,8 +1086,11 @@ class TratamentoRequisicao:
         
         # selecionou uma cidade: salvar no DB
         print(f'CIDADE SELECIONADA: {self.req.data["nome"]}')
-        self.multi360_model.pessoa.cidade = CidadeModel.buscar_por_id(cidade_id)
-        self.multi360_model.pessoa.atualizar()
+        self.multi360_model.pessoa.cidade = CidadeModel.buscar_por_id(
+            db.session,
+            cidade_id
+        )
+        db.session.commit()
 
         # retorna próxima coleta de info: possui imovel cidade.
         return self._response_proxima_entrada()
@@ -1066,7 +1108,7 @@ class TratamentoRequisicao:
         else:
             simulacao.tipo_financiamento_bradesco = tipo_financ
         
-        self.multi360_model.atualizar()
+        db.session.commit()
         # retorna próxima coleta de info: valor imóvel
         return self._response_proxima_entrada()
 
@@ -1076,7 +1118,8 @@ class TratamentoRequisicao:
         possui_imovel_cidade: str = self.req.data['valor']
         # salvar possui_imovel_cidade no db
         self.multi360_model.pessoa.possui_imovel_cidade = possui_imovel_cidade
-        self.multi360_model.pessoa.atualizar()
+        db.session.commit()
+
         # retorna próxima coleta de info: tipo_financ
         # ou dependente
         return self._response_proxima_entrada()
@@ -1099,7 +1142,7 @@ class TratamentoRequisicao:
         simulacoes = self.multi360_model.pessoa.simulacoes
         simulacao: SimulacaoModel = simulacoes[0]
         simulacao.valor_imovel = sim._valor_imovel
-        simulacao.atualizar()
+        db.session.commit()
 
         # retorna próxima coleta de info: cpf
         return self._response_proxima_entrada()
@@ -1133,7 +1176,7 @@ class TratamentoRequisicao:
         self.req.data['opcoes_financ']['valor_entrada'] = sim.valor_entrada
 
         simulacao.valor_entrada = sim._valor_entrada
-        simulacao.atualizar()
+        db.session.commit()
         
         #if not alterar or self.banco == Banco.ITAU_L:
         if not alterar:
@@ -1146,7 +1189,16 @@ class TratamentoRequisicao:
 
         cpf: str = self.req.text
         key: str = self.req.contact.key
-        multi360_model: Multi360Model = Multi360Model.buscar_por_key(key)
+        multi360_model: Multi360Model | None = Multi360Model.buscar_por_key(
+            db.session,
+            key
+        )
+
+        if not multi360_model or not self.banco:
+            return self._response_proxima_entrada(
+                Entrada.CPF,
+                ConfMulti360.Questao.CPF_INVALIDO
+            )
 
         sim = SimuladorBase(self.banco)
         try:
@@ -1163,12 +1215,13 @@ class TratamentoRequisicao:
         pessoa_model: PessoaModel = PessoaModel.buscar_por_cpf(
             str(sim._cpf)
         )
+
         if pessoa_model:
             multi360_model.pessoa = pessoa_model
-            multi360_model.atualizar()
+            db.session.commit()
         else:
             multi360_model.pessoa.cpf = str(sim._cpf)
-            multi360_model.pessoa.atualizar()
+            db.session.commit()
 
         # retorna próxima coleta de info: celular ou renda familiar 
         # bruta, depende de req.contact.type
@@ -1195,7 +1248,7 @@ class TratamentoRequisicao:
         fone_fmt: str = fone.formatar(retirar_mais_ddi=True,
                                       retirar_zero_esq=True)
         self.multi360_model.pessoa.fone = fone_fmt
-        self.multi360_model.pessoa.atualizar()
+        db.session.commit()
 
         # retorna próxima coleta de info: renda familiar bruta
         return self._response_proxima_entrada()
@@ -1214,7 +1267,7 @@ class TratamentoRequisicao:
         # salvar renda familiar no DB
         simulacao: SimulacaoModel = self.multi360_model.pessoa.simulacoes[0]
         simulacao.renda_bruta = sim._renda_familiar
-        simulacao.atualizar()
+        db.session.commit()
 
         # Caixa: retorna próxima coleta de info: dt. nasc.
         # Itaú ou Santander: resultado da simulação
@@ -1240,7 +1293,7 @@ class TratamentoRequisicao:
 
         # salvar data nascimento no DB
         self.multi360_model.pessoa.data_nasc = sim._data_nascimento
-        self.multi360_model.pessoa.atualizar()
+        db.session.commit()
 
         # retorna próxima coleta de info: menu "3 anos fgts"
         return self._response_proxima_entrada()
@@ -1262,7 +1315,7 @@ class TratamentoRequisicao:
 
         # salvar data nascimento no DB
         self.multi360_model.pessoa.data_nasc_conjuge = sim._data_nascimento
-        self.multi360_model.pessoa.atualizar()
+        db.session.commit()
 
         # retorna próxima coleta de info: menu resultado da simulação"
         #return self._response_proxima_entrada()
@@ -1274,7 +1327,8 @@ class TratamentoRequisicao:
         tres_anos_fgts = self.req.data['valor']
         # salvar possui 3 anos fgts no db
         self.multi360_model.pessoa.tres_anos_fgts = tres_anos_fgts
-        self.multi360_model.pessoa.atualizar()
+        db.session.commit()
+
         # retorna próxima coleta de info: menu mais de um comprador 
         # ou dependente
         return self._response_proxima_entrada()
@@ -1287,7 +1341,7 @@ class TratamentoRequisicao:
         # salvar DB
         self.multi360_model.pessoa.mais_de_um_comprador_dependente = \
             mais_de_um_comprador_dependente
-        self.multi360_model.pessoa.atualizar()
+        db.session.commit()
         
         if self.banco == Banco.CAIXA or (self.banco == Banco.BRADESCO
         and mais_de_um_comprador_dependente):
@@ -1425,7 +1479,8 @@ class TratamentoRequisicao:
         servidor_publico: str = self.req.data['valor']
         # salvar no db
         self.multi360_model.pessoa.servidor_publico = servidor_publico
-        self.multi360_model.pessoa.atualizar()
+        db.session.commit()
+
         # retorna próxima coleta de info: menu opções de financ.
         return self._response_proxima_entrada()
 
@@ -1573,7 +1628,7 @@ class TratamentoRequisicao:
         # salvar opção financ. no DB
         simulacao.data = datetime.now()
         simulacao.opcao_financiamento = str(opcao_financ.value)
-        simulacao.atualizar()
+        db.session.commit()
 
         # exibir resultado da simulação ao usuário
         TAM_TRACEJADO = Parametros.TAM_TRACEJADO
@@ -1825,11 +1880,12 @@ class TratamentoRequisicao:
         simulacao_novo.opcao_financiamento = simulacao_atual.opcao_financiamento
 
         self.multi360_model.pessoa.simulacoes.append(simulacao_novo)
-        self.multi360_model.atualizar()
+        db.session.commit()
+        
         # TODO: desativar no banco de dados o preenchimento automático 
         # da data. Forçar data nulo pois preenche automático
         self.multi360_model.pessoa.simulacoes[0].data = None
-        self.multi360_model.atualizar()
+        db.session.commit()
         self.flag_copiar_sim = True
 
     def _pular_entrada(self, entrada: Entrada) -> Entrada:
@@ -2047,7 +2103,7 @@ class TratamentoRequisicao:
                 # limpa data pra evitar inserção de outro registro na
                 # tabela de simulações
                 self.multi360_model.pessoa.simulacoes[0].data = None
-                self.multi360_model.atualizar()
+                db.session.commit()
 
                 return _response_tipo_menu(
                     txt=texto or ConfMulti360.Menu.ALTERAR_DADOS2,
